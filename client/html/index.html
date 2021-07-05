@@ -18,26 +18,18 @@
       <div class="sr-main">
         <section class="container">
           <div>
-            <h1>Single photo</h1>
-            <h4>Purchase a Pasha original photo</h4>
-
-            <div class="pasha-image">
-              <img
-                src="https://picsum.photos/280/320?random=4"
-                width="140"
-                height="160"
-              />
-            </div>
+            <h1>Rent Time</h1>
+            <h2 class="sr-time">30 Mins</h2>
           </div>
 
           <form action="/create-checkout-session" method="POST">
             <div class="quantity-setter">
               <button class="increment-btn" id="subtract" disabled type="button">-</button>
-              <input type="number" id="quantity-input" min="1" value="1" name="quantity" />
+              <input type="number" id="quantity-input" min="1" value="1" name="quantity" onkeydown="return false" readonly="true"/>
               <button class="increment-btn" id="add" type="button">+</button>
             </div>
 
-            <p class="sr-legal-text">Number of copies (max 10)</p>
+            <p class="sr-legal-text">Multiples of 30 Mins (max 4)</p>
 
             <button type="submit" id="submit">Buy</button>
           </form>

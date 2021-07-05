@@ -1,15 +1,17 @@
-// The max and min number of photos a customer can purchase
-var MIN_PHOTOS = 1;
-var MAX_PHOTOS = 10;
+// The max and min number of 30 min increments a customer can purchase
+var MIN_MULTIPLES = 1;
+var MAX_MULTIPLES = 4;
 
 var quantityInput = document.getElementById('quantity-input');
 quantityInput.addEventListener('change', function (e) {
-  // Ensure customers only buy between 1 and 10 photos
-  if (quantityInput.value < MIN_PHOTOS) {
-    quantityInput.value = MIN_PHOTOS;
+  // Ensure customers only buy between 1 and 4 photos
+  if (quantityInput.value < MIN_MULTIPLES) {
+    quantityInput.value = MIN_MULTIPLES;
   }
-  if (quantityInput.value > MAX_PHOTOS) {
-    quantityInput.value = MAX_PHOTOS;
+  if (quantityInput.value > MAX_MULTIPLES
+  ) {
+    quantityInput.value = MAX_MULTIPLES
+  ;
   }
 });
 
@@ -29,10 +31,11 @@ var updateQuantity = function (evt) {
   quantityInput.value = parseInt(quantityInput.value) + delta;
 
   // Disable the button if the customers hits the max or min
-  if (quantityInput.value == MIN_PHOTOS) {
+  if (quantityInput.value == MIN_MULTIPLES) {
     subtractBtn.disabled = true;
   }
-  if (quantityInput.value == MAX_PHOTOS) {
+  if (quantityInput.value == MAX_MULTIPLES
+  ) {
     addBtn.disabled = true;
   }
 };

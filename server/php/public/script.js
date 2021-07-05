@@ -1,12 +1,12 @@
 // The max and min number of photos a customer can purchase
 var MIN_PHOTOS = 1;
-var MAX_PHOTOS = 10;
+var MAX_PHOTOS = 4;
 
 var basicPhotoButton = document.getElementById("basic-photo-button");
 document
   .getElementById("quantity-input")
   .addEventListener("change", function (evt) {
-    // Ensure customers only buy between 1 and 10 photos
+    // Ensure customers only buy between 1 and 4 photos
     if (evt.target.value < MIN_PHOTOS) {
       evt.target.value = MIN_PHOTOS;
     }
