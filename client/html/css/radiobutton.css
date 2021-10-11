@@ -13,6 +13,7 @@ body{
   overflow: hidden;
   height:100%;
 }
+
 h1{
   font-weight:100;
   text-align: center;
@@ -34,7 +35,7 @@ h4{
   right: 0;
   bottom: 0;
   margin: auto;
-  width: 500px;
+  width: 400px;
   height: 270px;
   padding: 16px;
   box-sizing: border-box;
@@ -43,6 +44,7 @@ h4{
 .club {
     text-align: left;
 }
+
 
 /* CLUB SELECTION TABLE */
 th {
@@ -56,7 +58,7 @@ td {
 
 ul{
   list-style-type: none;
-  width: 120px;
+  width: 80px;
   margin: auto;
   float: left;
 }
@@ -82,7 +84,7 @@ label:before {
 
 label{
     color: black;
-    font-size: large;
+    font-size: medium;
 }
 
 input[type="radio"] {
@@ -149,7 +151,7 @@ input[type="radio"]:checked ~ .bullet {
 
 .label.two {
    font-size: x-large;
-   width: 300px;
+   /* width: 300px; */
 }
 
 .line.three {
