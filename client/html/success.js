@@ -37,9 +37,10 @@ const COLOR_CODES = {
 };
 
 // TODO: Need to handle these
-// 30 MINS = 1800
-// 60 Mins = 3600
-const TIME_LIMIT = 1800;
+THIRTY_SECS = 30
+THIRTY_MINS = 1800
+SIXTY_MINS = 3600
+const TIME_LIMIT = THIRTY_SECS;
 let timePassed = 0;
 let timeLeft = TIME_LIMIT;
 let timerInterval = null;
@@ -73,6 +74,8 @@ startTimer();
 
 function onTimesUp() {
   clearInterval(timerInterval);
+  console.log("TIMES UP!")
+  
 }
 
 function startTimer() {

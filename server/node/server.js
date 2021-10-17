@@ -1,3 +1,10 @@
+// JWT can have expirations built in
+// Use SessionID to only have one session?
+// Session” is the term used to refer to a visitor’s time browsing a web site. It’s meant to represent the time between a visitor’s first arrival at a page on the site and the time they stop using the site.
+
+// Use Cookie for user identification that we can save in their browser. I think this is probably the way we can know if it's on one device
+//  cookie identifies, often anonymously, a specific visitor or a specific computer. Cookies can be used for authentication, storing site preferences, saving shopping carts, and server session identification
+
 const express = require('express');
 const app = express();
 const { resolve } = require('path');
@@ -50,6 +57,11 @@ app.get('/config', async (req, res) => {
 app.get('/checkout-session', async (req, res) => {
   const { sessionId } = req.query;
   const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+  // Timeout counter starts as soon as the checkout is successful...
+  // TODO: Need to make sure this isn't called if there's a failed checkout
+  setTimeout(sessionTimer, 3000, 'Thats TIME!');
+
   res.send(session);
 });
 
@@ -78,9 +90,11 @@ app.post('/create-checkout-session', async (req, res) => {
         quantity: quantity
       },
     ],
+    // TODO: Can I make this no longer valid after 30 mins? Create a QR code so the user can access easily?
     // ?session_id={CHECKOUT_SESSION_ID} means the redirect will have the session ID set as a query param
     success_url: `${domainURL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${domainURL}/canceled.html`,
+
   });
 
   return res.redirect(303, session.url);
@@ -118,6 +132,7 @@ app.post('/webhook', async (req, res) => {
 
   if (eventType === 'checkout.session.completed') {
     console.log(`🔔  Payment received!`);
+
   }
 
   res.sendStatus(200);
@@ -127,9 +142,60 @@ app.listen(4242, () => console.log(`Node server listening on port ${4242}!`));
 
 
 function checkEnv() {
-  const price = process.env.PRICE;
-  if(price === "price_12345" || !price) {
+  const price = process.env.PRICE_ID;
+  if (price === !price) {
     console.log("You must set a Price ID in the environment variables. Please see the README.");
     process.exit(0);
   }
 }
+
+function sessionTimer(arg) {
+  console.log(`TimedOut => ${arg}`);
+}
+
+
+// Sesion Expired Endpoint
+app.get('/session-expired', (req, res) => {
+  const path = resolve(process.env.STATIC_DIR + '/session_expired.html');
+  res.sendFile(path);
+});
+
+
+// Sesion Expired Endpoint
+app.post('/send', (req, res) => {
+  console.log(req.body.email_address)
+  sendEmail(req.body.email_address)
+});
+
+
+function sendEmail(customersEmail){
+  console.log(`sendEmail()`);
+var nodemailer = require('nodemailer');
+var email = process.env.EMAIL;
+var password = process.env.EMAIL_PASSWORD;
+
+var transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: email,
+    pass: password
+  }
+});
+
+var mailOptions = {
+  from: email,
+  to: customersEmail,
+  subject: 'Trackman Session',
+  text: 'That was easy!'
+};
+
+transporter.sendMail(mailOptions, function(error, info){
+  if (error) {
+    console.log(error);
+  } else {
+    console.log('Email sent: ' + info.response);
+  }
+});
+}
+
+

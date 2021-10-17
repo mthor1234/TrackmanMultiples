@@ -14,6 +14,15 @@
   <script src="./success.js" defer></script>
 </head>
 
+<script>
+  setTimeout(function () {
+     // after 2 seconds
+     // Redirects to the expired page
+     window.location.href='/session_expired.html';
+    // window.location.href='/session_expired.php';
+  }, 2000)
+</script>
+
 <body>
   <div class="sr-root">
     <div class="sr-main">
@@ -30,7 +39,7 @@
 
     <!-- CLUB SELECTION RADIO BUTTONS -->
     <div class="continput">
-      <!-- <h2 class="club">Select Your Club</h2> -->
+      <h2 class="club">Select Your Club</h2>
       <table>
         <tr>
           <th>Wedges</th>
