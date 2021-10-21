@@ -141,6 +141,28 @@ app.post('/webhook', async (req, res) => {
 app.listen(4242, () => console.log(`Node server listening on port ${4242}!`));
 
 
+// Sesion Expired Endpoint
+app.get('/session-expired', (req, res) => {
+  const path = resolve(process.env.STATIC_DIR + '/session_expired.html');
+  res.sendFile(path);
+});
+
+
+// Sesion Expired Endpoint
+app.post('/send', (req, res) => {
+  console.log(req.body.email_address)
+  sendEmail(req.body.email_address, res)
+});
+
+
+// Sesion Expired Endpoint
+app.get('/error', (req, res) => {
+  const path = resolve(process.env.STATIC_DIR + '/error.html');
+  res.sendFile(path);
+});
+
+
+
 function checkEnv() {
   const price = process.env.PRICE_ID;
   if (price === !price) {
@@ -154,21 +176,7 @@ function sessionTimer(arg) {
 }
 
 
-// Sesion Expired Endpoint
-app.get('/session-expired', (req, res) => {
-  const path = resolve(process.env.STATIC_DIR + '/session_expired.html');
-  res.sendFile(path);
-});
-
-
-// Sesion Expired Endpoint
-app.post('/send', (req, res) => {
-  console.log(req.body.email_address)
-  sendEmail(req.body.email_address)
-});
-
-
-function sendEmail(customersEmail){
+function sendEmail(customersEmail, res){
   console.log(`sendEmail()`);
 var nodemailer = require('nodemailer');
 var email = process.env.EMAIL;
@@ -191,9 +199,19 @@ var mailOptions = {
 
 transporter.sendMail(mailOptions, function(error, info){
   if (error) {
+
     console.log(error);
+    
+    //redirect to error screen
+    res.statusCode=302;
+    res.setHeader('Location','/error');
+
   } else {
     console.log('Email sent: ' + info.response);
+        //Email sent, send the user back to the home screen
+        res.statusCode=302;
+        res.setHeader('Location','/');
+        return res.end();
   }
 });
 }
