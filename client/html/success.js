@@ -1,3 +1,6 @@
+// TODO: Navigating back and forth to this screen resets the timer to the full amount, 
+// Probably should keep the timer running separatelyneed to persist the actual amount of time left
+
 var urlParams = new URLSearchParams(window.location.search);
 var sessionId = urlParams.get('session_id');
 
@@ -40,10 +43,16 @@ const COLOR_CODES = {
 THIRTY_SECS = 30
 THIRTY_MINS = 1800
 SIXTY_MINS = 3600
+
 const TIME_LIMIT = THIRTY_SECS;
+
 let timePassed = 0;
-let timeLeft = TIME_LIMIT;
+
+// let timeLeft = TIME_LIMIT;
+let timeLeft = localStorage.getItem('time') || TIME_LIMIT;
+
 let timerInterval = null;
+
 let remainingPathColor = COLOR_CODES.info.color;
 
 document.getElementById("timer").innerHTML = `
@@ -82,6 +91,9 @@ function startTimer() {
   timerInterval = setInterval(() => {
     timePassed = timePassed += 1;
     timeLeft = TIME_LIMIT - timePassed;
+
+    localStorage.setItem('time', timeLeft);
+
     document.getElementById("base-timer-label").innerHTML = formatTime(
       timeLeft
     );
@@ -137,4 +149,3 @@ function setCircleDasharray() {
     .getElementById("base-timer-path-remaining")
     .setAttribute("stroke-dasharray", circleDasharray);
 }
-

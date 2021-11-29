@@ -12,9 +12,8 @@
   <link rel="stylesheet" href="css/global.css" />
   <link rel="stylesheet" href="css/session_expired.css" />
 
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script src="session_expired.js"></script>
-  
-
 </head>
 
 <body>
@@ -26,17 +25,20 @@
       <div class="session-expired view">
         <h1>Session Expired</h1>
         <h2>Thank You!</h2>
-      </br>
-    </br>
-    <div class="mail">
-        <h2>Email address to send your Trackman session</h2>
-        <form name="emailform" method="POST" action="send"> 
-        <!-- Need an actual email validation check -->
-        <input type="email" name="email_address" id="email" size="30" required>
-        <input type="submit" name="submit" value="Submit" onclick="ValidateEmail(document.emailform.email)"/>
-      </form>
-      </div>
-      </div>
+        </br>
+        </br>
+        <div class="mail">
+          <h2>Email address to send your Trackman session</h2>
+          <form name="emailform" id="emailForm1" method="POST" action="send">
+            <!-- Need an actual email validation check -->
+            <input type="email" name="email_address" id="email" size="30" required>
+            <input type="submit" name="submit" id="email_submit" value="Submit" />
+          </form>
+          <form action="/" method="GET">
+            <button>Skip</button>
+        </form>
+        </div>
+          </div>
     </div>
   </div>
 </body>

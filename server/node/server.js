@@ -4,6 +4,7 @@
 
 // Use Cookie for user identification that we can save in their browser. I think this is probably the way we can know if it's on one device
 //  cookie identifies, often anonymously, a specific visitor or a specific computer. Cookies can be used for authentication, storing site preferences, saving shopping carts, and server session identification
+var hasActiveSession = false;
 
 const express = require('express');
 const app = express();
@@ -60,12 +61,19 @@ app.get('/checkout-session', async (req, res) => {
 
   // Timeout counter starts as soon as the checkout is successful...
   // TODO: Need to make sure this isn't called if there's a failed checkout
-  setTimeout(sessionTimer, 3000, 'Thats TIME!');
+  setTimeout(sessionTimer, 60000, 'Thats TIME!');
+
 
   res.send(session);
 });
 
 app.post('/create-checkout-session', async (req, res) => {
+
+  if(hasActiveSession){
+    const path = resolve(process.env.STATIC_DIR + '/already_in_use.html');
+    res.sendFile(path);
+  }else{
+
   const domainURL = process.env.DOMAIN;
 
   const { quantity } = req.body;
@@ -80,6 +88,8 @@ app.post('/create-checkout-session', async (req, res) => {
   // [billing_address_collection] - to display billing address details on the page
   // [customer] - if you have an existing Stripe Customer ID
   // [customer_email] - lets you prefill the email input in the Checkout page
+  // TODO: NEED TO ADD THIS! 
+  // [expires_at] - The Epoch time in seconds at which the Checkout Session will expire. It can be anywhere from 1 to 24 hours after Checkout Session creation. By default, this value is 24 hours from creation.
   // For full details see https://stripe.com/docs/api/checkout/sessions/create
   const session = await stripe.checkout.sessions.create({
     payment_method_types: pmTypes,
@@ -98,6 +108,7 @@ app.post('/create-checkout-session', async (req, res) => {
   });
 
   return res.redirect(303, session.url);
+}
 });
 
 // Webhook handler for asynchronous events.
@@ -161,6 +172,11 @@ app.get('/error', (req, res) => {
   res.sendFile(path);
 });
 
+// Sesion Expired Endpoint
+app.get('/time', (req, res) => {
+  res.send(2000);
+});
+
 
 
 function checkEnv() {
@@ -171,23 +187,24 @@ function checkEnv() {
   }
 }
 
-function sessionTimer(arg) {
+async function sessionTimer(arg) {
   console.log(`TimedOut => ${arg}`);
+
 }
 
 
 function sendEmail(customersEmail, res){
   console.log(`sendEmail()`);
-var nodemailer = require('nodemailer');
-var email = process.env.EMAIL;
-var password = process.env.EMAIL_PASSWORD;
+  var nodemailer = require('nodemailer');
+  var email = process.env.EMAIL;
+  var password = process.env.EMAIL_PASSWORD;
 
-var transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: email,
-    pass: password
-  }
+  var transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: email,
+      pass: password
+    }
 });
 
 var mailOptions = {

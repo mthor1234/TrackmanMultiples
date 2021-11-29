@@ -1,19 +1,23 @@
-// Ensures the email is valid
-function ValidateEmail(inputText) {
-    var mailformat = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
-    if (inputText.value.match(mailformat)) {
-        alert("Valid email address!");
-        document.form1.text1.focus();
-        return true;
-    }
-    else {
-        alert("You have entered an invalid email address!");
-        document.form1.text1.focus();
-        return false;
-    }
-}
 
-// Message is shown when the user tries to navigate away from the page
-window.onbeforeunload = function() {
-    return 'Your session will be lost!';
-  };
+// Alerts the user of unsaved changes
+$(document).ready(function () {
+
+    var unsaved = false;
+
+    $(":input").change(function () { //triggers change in all input fields including text type
+      unsaved = true;
+    });
+
+    function unloadPage() {
+      if (unsaved) {
+        return "You have unsaved changes on this page. Do you want to leave this page and discard your changes or stay on this page?";
+      }
+    }
+
+    window.onbeforeunload = unloadPage;
+
+    $('#email_submit').click(function() {
+      unsaved = false;
+    });
+
+  });

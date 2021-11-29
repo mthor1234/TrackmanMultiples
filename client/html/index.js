@@ -3,21 +3,21 @@ var MIN_MULTIPLES = 1;
 var MAX_MULTIPLES = 4;
 
 var quantityInput = document.getElementById('quantity-input');
+
 quantityInput.addEventListener('change', function (e) {
   // Ensure customers only buy between 1 and 4 photos
   if (quantityInput.value < MIN_MULTIPLES) {
     quantityInput.value = MIN_MULTIPLES;
   }
-  if (quantityInput.value > MAX_MULTIPLES
-  ) {
-    quantityInput.value = MAX_MULTIPLES
-  ;
+  if (quantityInput.value > MAX_MULTIPLES) {
+    quantityInput.value = MAX_MULTIPLES;
   }
 });
 
 /* Method for changing the product quantity when a customer clicks the increment / decrement buttons */
 var addBtn = document.getElementById("add");
 var subtractBtn = document.getElementById("subtract");
+
 var updateQuantity = function (evt) {
   if (evt && evt.type === 'keypress' && evt.keyCode !== 13) {
     return;

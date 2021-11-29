@@ -11,7 +11,10 @@
   <link rel="stylesheet" href="css/normalize.css" />
   <link rel="stylesheet" href="css/global.css" />
   <link rel="stylesheet" href="css/radiobutton.css" />
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script src="./success.js" defer></script>
+  
 </head>
 
 <script>
@@ -20,7 +23,7 @@
      // Redirects to the expired page
      window.location.href='/session_expired.html';
     // window.location.href='/session_expired.php';
-  }, 2000)
+  }, 10000)
 </script>
 
 <body>
@@ -28,10 +31,6 @@
     <div class="sr-main">
       <header class="sr-header">
       </header>
-    </div>
-
-    <div class="sr-section-completed-view">
-      <button onclick="window.location.href = '/';">Restart demo</button>
     </div>
 
     <!-- TIMER -->
