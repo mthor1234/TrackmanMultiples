@@ -89,11 +89,13 @@ app.post('/create-checkout-session', async (req, res) => {
   // [customer] - if you have an existing Stripe Customer ID
   // [customer_email] - lets you prefill the email input in the Checkout page
   // TODO: NEED TO ADD THIS! 
+  // [after_expiration] - Configure actions after a Checkout Session has expired.
   // [expires_at] - The Epoch time in seconds at which the Checkout Session will expire. It can be anywhere from 1 to 24 hours after Checkout Session creation. By default, this value is 24 hours from creation.
   // For full details see https://stripe.com/docs/api/checkout/sessions/create
   const session = await stripe.checkout.sessions.create({
     payment_method_types: pmTypes,
     mode: 'payment',
+    expires_at: generateTimeStampCurrentPlusOneHour(),
     line_items: [
       {
         price: process.env.PRICE,
@@ -106,6 +108,21 @@ app.post('/create-checkout-session', async (req, res) => {
     cancel_url: `${domainURL}/canceled.html`,
 
   });
+
+  // This is how we can see the other sessions. Can check if there is an active session
+  // Active Session -> We don't create the new request and we alert the user
+  // !Active Session -> Create the session
+  const sessions = await stripe.checkout.sessions.list({
+    limit: 1,
+  });
+
+  console.log("Previous Session: ");
+  console.log("id: " + sessions.data[0].id);
+  console.log("Payment_Status: " + sessions.data[0].payment_status);
+  console.log("status: " + sessions.data[0].status);
+  console.log("expires_at: " + sessions.data[0].expires_at);
+
+
 
   return res.redirect(303, session.url);
 }
@@ -172,13 +189,6 @@ app.get('/error', (req, res) => {
   res.sendFile(path);
 });
 
-// Sesion Expired Endpoint
-app.get('/time', (req, res) => {
-  res.send(2000);
-});
-
-
-
 function checkEnv() {
   const price = process.env.PRICE_ID;
   if (price === !price) {
@@ -189,7 +199,22 @@ function checkEnv() {
 
 async function sessionTimer(arg) {
   console.log(`TimedOut => ${arg}`);
+}
 
+/**
+ * Generates the timestamp for Stripe to timeout the Checkout Session
+ * @returns The Current Time In Seconds + One Hour (3600 Seconds)
+ */
+function generateTimeStampCurrentPlusOneHour() {
+  const EPOCH_SECONDS_ONE_HOUR = 3600;
+
+  var currentTime = new Date().getTime();
+  var currentTimeSeconds = Math.floor(currentTime/1000);
+  var currentTimeSecondsPlusOneHour = currentTimeSeconds + EPOCH_SECONDS_ONE_HOUR;
+
+  console.log("Seconds: " + currentTimeSecondsPlusOneHour);
+
+  return currentTimeSecondsPlusOneHour;
 }
 
 
