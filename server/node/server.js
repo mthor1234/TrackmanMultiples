@@ -1,9 +1,8 @@
-// JWT can have expirations built in
-// Use SessionID to only have one session?
-// Session” is the term used to refer to a visitor’s time browsing a web site. It’s meant to represent the time between a visitor’s first arrival at a page on the site and the time they stop using the site.
-
-// Use Cookie for user identification that we can save in their browser. I think this is probably the way we can know if it's on one device
-//  cookie identifies, often anonymously, a specific visitor or a specific computer. Cookies can be used for authentication, storing site preferences, saving shopping carts, and server session identification
+// I'm thinking of this flow
+// 1. QR Code that is used to access the index page
+// 1a. Endpoint keeps changing with the QR Code
+// 2. It expires every minute or so
+// 3. User gets to the 
 var hasActiveSession = false;
 
 const express = require('express');
@@ -54,19 +53,6 @@ app.get('/config', async (req, res) => {
   });
 });
 
-// Fetch the Checkout Session to display the JSON result on the success page
-app.get('/checkout-session', async (req, res) => {
-  const { sessionId } = req.query;
-  const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-  // Timeout counter starts as soon as the checkout is successful...
-  // TODO: Need to make sure this isn't called if there's a failed checkout
-  setTimeout(sessionTimer, 60000, 'Thats TIME!');
-
-
-  res.send(session);
-});
-
 app.post('/create-checkout-session', async (req, res) => {
 
   if(hasActiveSession){
@@ -109,6 +95,11 @@ app.post('/create-checkout-session', async (req, res) => {
 
   });
 
+
+  setTimeout(sessionTimer2, 5000, session.payment_intent);
+
+
+
   // This is how we can see the other sessions. Can check if there is an active session
   // Active Session -> We don't create the new request and we alert the user
   // !Active Session -> Create the session
@@ -122,10 +113,22 @@ app.post('/create-checkout-session', async (req, res) => {
   console.log("status: " + sessions.data[0].status);
   console.log("expires_at: " + sessions.data[0].expires_at);
 
-
-
   return res.redirect(303, session.url);
 }
+});
+
+// Fetch the Checkout Session to display the JSON result on the success page
+app.get('/checkout-session', async (req, res) => {
+  const { sessionId } = req.query;
+  const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+  hasActiveSession = true;
+
+  // Timeout counter starts as soon as the checkout is successful...
+  // TODO: Need to make sure this isn't called if there's a failed checkout
+  setTimeout(sessionTimer, 60000, 'Thats TIME!');
+
+  res.send(session);
 });
 
 // Webhook handler for asynchronous events.
@@ -173,6 +176,9 @@ app.listen(4242, () => console.log(`Node server listening on port ${4242}!`));
 app.get('/session-expired', (req, res) => {
   const path = resolve(process.env.STATIC_DIR + '/session_expired.html');
   res.sendFile(path);
+
+  // Session has expired. Lower the flag
+  hasActiveSession = false;
 });
 
 
@@ -199,6 +205,20 @@ function checkEnv() {
 
 async function sessionTimer(arg) {
   console.log(`TimedOut => ${arg}`);
+}
+
+
+// This cancels the payment Intent
+// TODO: Should redirect the customer to the timed out page
+async function sessionTimer2(theIntent) {
+
+  console.log(`TimedOut => ${theIntent}`);
+
+  // Cancel the payment intent
+  await stripe.paymentIntents.cancel(
+    theIntent
+  );
+
 }
 
 /**
@@ -240,6 +260,10 @@ var mailOptions = {
 };
 
 transporter.sendMail(mailOptions, function(error, info){
+
+  // Machine is no longer in use. Lower the flag
+  hasActiveSession = false;
+
   if (error) {
 
     console.log(error);
