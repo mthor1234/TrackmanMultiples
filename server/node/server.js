@@ -1,8 +1,3 @@
-// I'm thinking of this flow
-// 1. QR Code that is used to access the index page
-// 1a. Endpoint keeps changing with the QR Code
-// 2. It expires every minute or so
-// 3. User gets to the 
 var hasActiveSession = false;
 
 const express = require('express');
@@ -95,10 +90,8 @@ app.post('/create-checkout-session', async (req, res) => {
 
   });
 
-
-  setTimeout(sessionTimer2, 5000, session.payment_intent);
-
-
+  // Represents seconds before the payment intent is cancelled 
+  const PAYMENT_INTENT_TIMEOUT = 20000;
 
   // This is how we can see the other sessions. Can check if there is an active session
   // Active Session -> We don't create the new request and we alert the user
@@ -205,20 +198,6 @@ function checkEnv() {
 
 async function sessionTimer(arg) {
   console.log(`TimedOut => ${arg}`);
-}
-
-
-// This cancels the payment Intent
-// TODO: Should redirect the customer to the timed out page
-async function sessionTimer2(theIntent) {
-
-  console.log(`TimedOut => ${theIntent}`);
-
-  // Cancel the payment intent
-  await stripe.paymentIntents.cancel(
-    theIntent
-  );
-
 }
 
 /**
