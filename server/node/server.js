@@ -1,10 +1,17 @@
 var hasActiveSession = false;
 
+// Trying my own token handling for handling the sessions
+// var jwt = require('jsonwebtoken');
+// var token = jwt.sign({ foo: 'bar' }, 'shhhhh');
+
 const express = require('express');
 const app = express();
+
 const { resolve } = require('path');
 // Copy the .env.example in the root into a .env file in this folder
 require('dotenv').config({ path: './.env' });
+
+
 
 // Ensure environment variables are set.
 checkEnv();
@@ -37,6 +44,35 @@ app.get('/', (req, res) => {
   const path = resolve(process.env.STATIC_DIR + '/index.html');
   res.sendFile(path);
 });
+
+app.get('/QR', (req, res) => {
+
+  const path = resolve(process.env.STATIC_DIR + '/qr.html');
+  res.sendFile(path);
+
+//   const QRCode = require('qrcode');
+
+// // QR Code is generated to the file below
+// const generateQR = async text => {
+//   try {
+//       await QRCode.toFile('./qr_code.png', text);
+
+//       // const path = resolve(process.env.STATIC_DIR + '/qr_code.png');
+//       const path = resolve('./qr_code.png');
+
+
+//       res.sendFile(path);
+ 
+//   } catch (err) {
+//       console.log(err);
+//       // TODO: Handle routing to an error page?
+//   }
+// }
+// generateQR("192.168.1.6:4242");
+
+});
+
+
 
 app.get('/config', async (req, res) => {
   const price = await stripe.prices.retrieve(process.env.PRICE);

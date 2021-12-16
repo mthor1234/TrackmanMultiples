@@ -1,3 +1,5 @@
+// TODO: Should probably keep the user's session ID on the expiration page as well.. This way, some random can't just export
+
 
 // Alerts the user of unsaved changes
 $(document).ready(function () {
@@ -21,3 +23,8 @@ $(document).ready(function () {
     });
 
   });
+
+
+  function onSkip(){
+      
+  }
