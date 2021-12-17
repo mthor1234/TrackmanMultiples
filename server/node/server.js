@@ -7,10 +7,13 @@ var hasActiveSession = false;
 const express = require('express');
 const app = express();
 
+var randomNumber = (Date.now() + Math.random()).toString(36);
+console.log("Random: " + randomNumber);
+
+
 const { resolve } = require('path');
 // Copy the .env.example in the root into a .env file in this folder
 require('dotenv').config({ path: './.env' });
-
 
 
 // Ensure environment variables are set.
@@ -40,13 +43,18 @@ app.use(
   })
 );
 
-app.get('/', (req, res) => {
+// Catches all routes to show the QR Code route
+app.get('/*', function(req, res) {
+  const path = resolve(process.env.STATIC_DIR + '/qr.html');
+  res.sendFile(path);
+});
+
+app.get('/'+ randomNumber, (req, res) => {
   const path = resolve(process.env.STATIC_DIR + '/index.html');
   res.sendFile(path);
 });
 
 app.get('/QR', (req, res) => {
-
   const path = resolve(process.env.STATIC_DIR + '/qr.html');
   res.sendFile(path);
 
@@ -71,8 +79,6 @@ app.get('/QR', (req, res) => {
 // generateQR("192.168.1.6:4242");
 
 });
-
-
 
 app.get('/config', async (req, res) => {
   const price = await stripe.prices.retrieve(process.env.PRICE);
