@@ -4,18 +4,37 @@
 var urlParams = new URLSearchParams(window.location.search);
 var sessionId = urlParams.get('session_id');
 
+// if (sessionId) {
+//   fetch('/checkout-session?sessionId=' + sessionId)
+//     .then(function (result) {
+//       return result.json();
+//     })
+//     .then(function (session) {
+//       var sessionJSON = JSON.stringify(session, null, 2);
+//       document.querySelector('pre').textContent = sessionJSON;
+//     })
+//     .catch(function (err) {
+//       console.log('Error when fetching Checkout session', err);
+//     });
+// }
+
+console.log("TEST1: " + sessionId);
+
+
+// Testing
 if (sessionId) {
-  fetch('/checkout-session?sessionId=' + sessionId)
-    .then(function (result) {
-      return result.json();
-    })
-    .then(function (session) {
-      var sessionJSON = JSON.stringify(session, null, 2);
-      document.querySelector('pre').textContent = sessionJSON;
-    })
-    .catch(function (err) {
-      console.log('Error when fetching Checkout session', err);
-    });
+  console.log("TEST2");
+  fetch('/check-session?sessionId=' + sessionId)
+    // .then(function (result) {
+    //   return result.json();
+    // })
+    // .then(function (session) {
+    //   var sessionJSON = JSON.stringify(session, null, 2);
+    //   document.querySelector('pre').textContent = sessionJSON;
+    // })
+    // .catch(function (err) {
+    //   console.log('Error when fetching Checkout session', err);
+    // });
 }
 
 
@@ -88,6 +107,7 @@ function onTimesUp() {
 }
 
 function startTimer() {
+  console.log("startTimer()");
   timerInterval = setInterval(() => {
     timePassed = timePassed += 1;
     timeLeft = TIME_LIMIT - timePassed;
