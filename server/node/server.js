@@ -51,23 +51,6 @@ app.use(
 //   res.sendFile(path);
 // });
 
-// TODO: This random number might work. Need to work on constant updating the random number to avoid user from unwanted access
-// app.get('/'+ randomNumber, (req, res) => {
-app.get('/' + randomNumber, (req, res) => {
-
-  console.log("In the random number");
-
-  //session.id = randomNumber;
-
-  // const path = resolve(process.env.STATIC_DIR + '/qr.html');
-  //const path = resolve(process.env.STATIC_DIR + '/success.html');
-  const success_url = `http://localhost:4242/success.html?session_id=`+ req.session.id;
-
-  //res.sendFile(path);
-  res.redirect(success_url);
-
-});
-
 app.get('/QR', (req, res) => {
   const path = resolve(process.env.STATIC_DIR + '/qr.html');
   res.sendFile(path);
@@ -94,6 +77,29 @@ app.get('/QR', (req, res) => {
 
 });
 
+// TODO: This random number might work. Need to work on constant updating the random number to avoid user from unwanted access
+  app.get('/' + randomNumber, (req, res) => {
+
+    console.log("In the random number");
+
+    // Creates the JWT so we can restrict access to the club selection page
+    generateJWT();
+  
+    //session.id = randomNumber;
+  
+    // const path = resolve(process.env.STATIC_DIR + '/qr.html');
+    //const path = resolve(process.env.STATIC_DIR + '/success.html');
+
+    // TODO Probably use the JWT ID to hide this route 
+    // const success_url = `http://localhost:4242/success.html?session_id=`+ req.session.id;
+    const success_url = `http://localhost:4242/success.html?session_id=`+ token;
+
+  
+    //res.sendFile(path);
+    res.redirect(success_url);
+  
+  });
+
 app.get("/checksession", function (req, res) {
   var currentTime = new Date();
   console.log("Current Time: " + currentTime);
@@ -119,7 +125,6 @@ app.get("/checksession", function (req, res) {
   });
 })
 
-
 // TODO: Testing
 app.get("/session", function (req, res) {
 
@@ -133,15 +138,41 @@ app.get("/session", function (req, res) {
 // Fetch the Checkout Session to display the JSON result on the success page
 app.get('/check-session', async (req, res) => {
 
-  const { sessionId } = req.query;
+  if( isTokenValid() ){
+    console.log("Token is fine")
+    res.sendStatus(200)
 
-  if (sessionId === req.session.id) {
-    console.log("SESSION ID MATCHES!");
-  } else {
-    console.log("SESSION ID DOES NOT MATCH!");
+  }else{
+
+    console.log("Want to send them to the beginning or session expired")
+    //res.send(403)
+
+    //res.status(404).sendFile('/absolute/path/to/404.png')
+
+    // TODO: Testing
+    const path = resolve(process.env.STATIC_DIR + '/');
+
+    //return res.redirect(303, path);
+
+    //res.redirect(path)
+    //res.sendFile(path);
+
+    res.status(403);
+    res.send('None shall pass');
+
+    // Session has expired. Lower the flag
+    //hasActiveSession = false;
   }
 
-  res.send(session);
+  // const { sessionId } = req.query;
+
+  // if (sessionId === req.session.id) {
+  //   console.log("SESSION ID MATCHES!");
+  // } else {
+  //   console.log("SESSION ID DOES NOT MATCH!");
+  // }
+
+  //res.send(session);
 });
 
 
@@ -170,9 +201,6 @@ app.get('/checkout-session', async (req, res) => {
 });
 
 app.post('/create-checkout-session', async (req, res) => {
-
-  // TODO Testing
-  req.session.name = 'GeeksforGeeks'
 
   if (hasActiveSession) {
     const path = resolve(process.env.STATIC_DIR + '/already_in_use.html');
@@ -379,6 +407,32 @@ function sendEmail(customersEmail, res) {
 // Signs the JWT with an expiration time
 function generateJWT(username) {
   token = jwt.sign({username}, process.env.TOKEN_SECRET, { expiresIn: '10s', });
+}
+
+// Check if the JWT is still valid
+function isTokenValid(){
+
+    var isTokenValid = false;
+
+    // Check if the JWT has expired / is still valid
+    jwt.verify(token, process.env.TOKEN_SECRET, function(err, decoded) {
+      if (err) {
+  
+        console.log("Token is EXPIRED!");  
+        /*
+          err = {
+            name: 'TokenExpiredError',
+            message: 'jwt expired',
+            expiredAt: 1408621000
+          }
+        */
+      }else{
+        console.log("Token is GOOD!");
+        isTokenValid = true;
+      }
+    });
+
+    return isTokenValid;
 }
 
 

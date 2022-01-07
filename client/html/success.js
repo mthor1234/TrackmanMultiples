@@ -22,20 +22,65 @@ console.log("TEST1: " + sessionId);
 
 
 // Testing
+// if (sessionId) {
+//   console.log("TEST2");
+//   // fetch('/check-session?sessionId=' + sessionId)
+//   fetch('/check-session')
+//   .then(response => response.json())
+//     .then(function (result) {
+//       console.log("Result: " +  result);
+
+//       if(result === 403){
+//         console.log("403 FOUND!");
+//       }
+
+      
+//     })
+//     .then(function (session) {
+//       var sessionJSON = JSON.stringify(session, null, 2);
+//       document.querySelector('pre').textContent = sessionJSON;
+//     })
+//     .catch(function (err) {
+//       console.log('Error when fetching Checkout session', err);
+
+//       // TODO: Testing
+//       //window.location.href='/session_expired.html';
+//     });
+// }
+
+
+// Testing
 if (sessionId) {
-  console.log("TEST2");
-  fetch('/check-session?sessionId=' + sessionId)
-    // .then(function (result) {
-    //   return result.json();
-    // })
-    // .then(function (session) {
-    //   var sessionJSON = JSON.stringify(session, null, 2);
-    //   document.querySelector('pre').textContent = sessionJSON;
-    // })
-    // .catch(function (err) {
-    //   console.log('Error when fetching Checkout session', err);
-    // });
+  console.log("TEST3");
+  // fetch('/check-session?sessionId=' + sessionId)
+  fetch('/check-session')
+  .then((response) => {
+    if (response.status >= 200 && response.status <= 299) {
+
+      var sessionJSON = JSON.stringify(session, null, 2);
+      document.querySelector('pre').textContent = sessionJSON;
+
+      return response.json();
+    } else if(response.status == 403){
+      console.log("403 FOUND!");
+
+      // Send the user to the session expired page. 
+      // Consider sending them to the start page
+      window.location.href='/session_expired.html';
+      return response.json();
+    }
+    else {
+      throw Error(response.statusText);
+    }
+  })
+  .then((jsonResponse) => {
+    // do whatever you want with the JSON response
+  }).catch((error) => {
+    // Handle the error
+    console.log(error);
+  });
 }
+
 
 
 // TIMER Below
