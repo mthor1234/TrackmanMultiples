@@ -1,5 +1,6 @@
 // TODO: Should probably keep the user's session ID on the expiration page as well.. This way, some random can't just export
-
+let startTimeoutHandler;
+const FIVE_MINUTES = 5 * 60000
 
 // Alerts the user of unsaved changes
 $(document).ready(function () {
@@ -24,7 +25,14 @@ $(document).ready(function () {
 
   });
 
+  startTimeoutHandler()
 
-  function onSkip(){
-      
-  }
+
+function startTimeoutHandler() {
+  timeout = setTimeout(goBackToStart, FIVE_MINUTES);
+}
+
+function goBackToStart() {
+  console.log("Go back to start!");
+  window.location.href='/index.html';
+}

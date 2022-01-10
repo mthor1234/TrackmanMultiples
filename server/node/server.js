@@ -1,22 +1,16 @@
 var hasActiveSession = false;
-var checkoutSessionID = null;
 var token = null;
 
 // // Trying my own token handling for handling the sessions
 const express = require('express');
-const session = require('express-session')
 const jwt = require('jsonwebtoken')
 const app = express();
-
-var randomNumber = (Date.now() + Math.random()).toString(36);
-console.log("Random: " + randomNumber);
-
-
 const { resolve } = require('path');
-const { stringify } = require('querystring');
 // Copy the .env.example in the root into a .env file in this folder
 require('dotenv').config({ path: './.env' });
 
+var randomNumber = (Date.now() + Math.random()).toString(36);
+console.log("Random: " + randomNumber);
 
 // Ensure environment variables are set.
 checkEnv();
@@ -27,7 +21,8 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
     name: "stripe-samples/checkout-one-time-payments",
     version: "0.0.1",
     url: "https://github.com/stripe-samples/checkout-one-time-payments"
-  }
+  },
+   maxNetworkRetries: 3
 });
 
 
@@ -51,30 +46,10 @@ app.use(
 //   res.sendFile(path);
 // });
 
+// TODO: This will be running on the PC and shouldn't be hosted / accesible by the customer
 app.get('/QR', (req, res) => {
   const path = resolve(process.env.STATIC_DIR + '/qr.html');
   res.sendFile(path);
-
-  //   const QRCode = require('qrcode');
-
-  // // QR Code is generated to the file below
-  // const generateQR = async text => {
-  //   try {
-  //       await QRCode.toFile('./qr_code.png', text);
-
-  //       // const path = resolve(process.env.STATIC_DIR + '/qr_code.png');
-  //       const path = resolve('./qr_code.png');
-
-
-  //       res.sendFile(path);
-
-  //   } catch (err) {
-  //       console.log(err);
-  //       // TODO: Handle routing to an error page?
-  //   }
-  // }
-  // generateQR("192.168.1.6:4242");
-
 });
 
 // TODO: This random number might work. Need to work on constant updating the random number to avoid user from unwanted access
@@ -84,56 +59,10 @@ app.get('/QR', (req, res) => {
 
     // Creates the JWT so we can restrict access to the club selection page
     generateJWT();
-  
-    //session.id = randomNumber;
-  
-    // const path = resolve(process.env.STATIC_DIR + '/qr.html');
-    //const path = resolve(process.env.STATIC_DIR + '/success.html');
-
-    // TODO Probably use the JWT ID to hide this route 
-    // const success_url = `http://localhost:4242/success.html?session_id=`+ req.session.id;
     const success_url = `http://localhost:4242/success.html?session_id=`+ token;
 
-  
-    //res.sendFile(path);
     res.redirect(success_url);
-  
   });
-
-app.get("/checksession", function (req, res) {
-  var currentTime = new Date();
-  console.log("Current Time: " + currentTime);
-
-  // Check if the JWT has expired / is still valid
-  jwt.verify(token, process.env.TOKEN_SECRET, function(err, decoded) {
-    if (err) {
-
-      console.log("Token is EXPIRED!");
-      return res.send(401)
-
-      /*
-        err = {
-          name: 'TokenExpiredError',
-          message: 'jwt expired',
-          expiredAt: 1408621000
-        }
-      */
-    }else{
-      console.log("Token is GOOD!");
-      return res.send(200)
-    }
-  });
-})
-
-// TODO: Testing
-app.get("/session", function (req, res) {
-
-  // Generate the JWT
-  generateJWT(1234);
-
-  return res.send(200)
-})
-
 
 // Fetch the Checkout Session to display the JSON result on the success page
 app.get('/check-session', async (req, res) => {
@@ -145,45 +74,12 @@ app.get('/check-session', async (req, res) => {
   }else{
 
     console.log("Want to send them to the beginning or session expired")
-    //res.send(403)
-
-    //res.status(404).sendFile('/absolute/path/to/404.png')
-
-    // TODO: Testing
-    const path = resolve(process.env.STATIC_DIR + '/');
-
-    //return res.redirect(303, path);
-
-    //res.redirect(path)
-    //res.sendFile(path);
-
     res.status(403);
     res.send('None shall pass');
 
     // Session has expired. Lower the flag
     //hasActiveSession = false;
   }
-
-  // const { sessionId } = req.query;
-
-  // if (sessionId === req.session.id) {
-  //   console.log("SESSION ID MATCHES!");
-  // } else {
-  //   console.log("SESSION ID DOES NOT MATCH!");
-  // }
-
-  //res.send(session);
-});
-
-
-app.get('/config', async (req, res) => {
-  const price = await stripe.prices.retrieve(process.env.PRICE);
-
-  res.send({
-    publicKey: process.env.STRIPE_PUBLISHABLE_KEY,
-    unitAmount: price.unit_amount,
-    currency: price.currency,
-  });
 });
 
 // Fetch the Checkout Session to display the JSON result on the success page
@@ -235,29 +131,9 @@ app.post('/create-checkout-session', async (req, res) => {
           quantity: quantity
         },
       ],
-      // ?session_id={CHECKOUT_SESSION_ID} means the redirect will have the session ID set as a query param
-      //success_url: `${domainURL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
       success_url: `${domainURL}/` + randomNumber,
-
       cancel_url: `${domainURL}/canceled.html`,
     });
-
-    // Represents seconds before the payment intent is cancelled 
-    const PAYMENT_INTENT_TIMEOUT = 20000;
-
-    // This is how we can see the other sessions. Can check if there is an active session
-    // Active Session -> We don't create the new request and we alert the user
-    // !Active Session -> Create the session
-    const sessions = await stripe.checkout.sessions.list({
-      limit: 1,
-    });
-
-    console.log("Previous Session: ");
-    console.log("id: " + sessions.data[0].id);
-    console.log("Payment_Status: " + sessions.data[0].payment_status);
-    console.log("status: " + sessions.data[0].status);
-    console.log("expires_at: " + sessions.data[0].expires_at);
-
     return res.redirect(303, session.url);
   }
 });
@@ -301,7 +177,6 @@ app.post('/webhook', async (req, res) => {
 
 app.listen(4242, () => console.log(`Node server listening on port ${4242}!`));
 
-
 // Sesion Expired Endpoint
 app.get('/session-expired', (req, res) => {
   const path = resolve(process.env.STATIC_DIR + '/session_expired.html');
@@ -311,13 +186,11 @@ app.get('/session-expired', (req, res) => {
   hasActiveSession = false;
 });
 
-
 // Sesion Expired Endpoint
 app.post('/send', (req, res) => {
   console.log(req.body.email_address)
   sendEmail(req.body.email_address, res)
 });
-
 
 // Sesion Expired Endpoint
 app.get('/error', (req, res) => {
@@ -325,6 +198,15 @@ app.get('/error', (req, res) => {
   res.sendFile(path);
 });
 
+app.get('/config', async (req, res) => {
+  const price = await stripe.prices.retrieve(process.env.PRICE);
+
+  res.send({
+    publicKey: process.env.STRIPE_PUBLISHABLE_KEY,
+    unitAmount: price.unit_amount,
+    currency: price.currency,
+  });
+});
 
 function checkEnv() {
   const price = process.env.PRICE_ID;
@@ -358,7 +240,6 @@ function generateTimeStampCurrentPlusOneHour() {
 
   return currentTimeSecondsPlusOneHour;
 }
-
 
 function sendEmail(customersEmail, res) {
   console.log(`sendEmail()`);
@@ -417,15 +298,7 @@ function isTokenValid(){
     // Check if the JWT has expired / is still valid
     jwt.verify(token, process.env.TOKEN_SECRET, function(err, decoded) {
       if (err) {
-  
         console.log("Token is EXPIRED!");  
-        /*
-          err = {
-            name: 'TokenExpiredError',
-            message: 'jwt expired',
-            expiredAt: 1408621000
-          }
-        */
       }else{
         console.log("Token is GOOD!");
         isTokenValid = true;
