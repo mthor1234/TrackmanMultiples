@@ -1,13 +1,21 @@
 var hasActiveSession = false;
 var token = null;
 
-// // Trying my own token handling for handling the sessions
-const express = require('express');
-const jwt = require('jsonwebtoken')
-const app = express();
-const { resolve } = require('path');
 // Copy the .env.example in the root into a .env file in this folder
 require('dotenv').config({ path: './.env' });
+
+// // Trying my own token handling for handling the sessions
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const app = express();
+const http = require('http');
+const port = process.env.PORT||4242 // setting the port 
+const server = http.createServer(app);
+const socketIO = require('socket.io');
+const io = socketIO(server)
+
+const { resolve } = require('path');
+
 
 var randomNumber = (Date.now() + Math.random()).toString(36);
 console.log("Random: " + randomNumber);
@@ -40,11 +48,40 @@ app.use(
   })
 );
 
+server.listen(port, () => console.log(`Node server listening on port ${port}!`));
+
 // Catches all routes to show the QR Code route
 // app.get('/*', function(req, res) {
 //   const path = resolve(process.env.STATIC_DIR + '/qr.html');
 //   res.sendFile(path);
 // });
+
+// make a connection with the user from server side
+io.on('connection', (socket)=>{
+
+  if(hasActiveSession){
+    console.log('Theres an active socket connection. Reject this connection');
+  }
+  else{
+  console.log('New user connected... ID: ' + socket.id);
+  hasActiveSession = true;
+
+    // This is how to call the disconnect from SocketIO. 
+  // When the user navigates away from the webpage, this is called
+  socket.on('disconnect', function(){
+    console.log('user disconnected');
+    hasActiveSession = false;
+  });
+  }
+
+
+});
+
+
+io.on('disconnect', (socket)=>{
+  console.log('SocketIO Session Disconnected');
+  hasActiveSession = false;
+});
 
 // TODO: This will be running on the PC and shouldn't be hosted / accesible by the customer
 app.get('/QR', (req, res) => {
@@ -63,6 +100,7 @@ app.get('/QR', (req, res) => {
 
     res.redirect(success_url);
   });
+
 
 // Fetch the Checkout Session to display the JSON result on the success page
 app.get('/check-session', async (req, res) => {
@@ -84,16 +122,16 @@ app.get('/check-session', async (req, res) => {
 
 // Fetch the Checkout Session to display the JSON result on the success page
 app.get('/checkout-session', async (req, res) => {
-  const { sessionId } = req.query;
-  const session = await stripe.checkout.sessions.retrieve(sessionId);
+  //const { sessionId } = req.query;
+  //const session = await stripe.checkout.sessions.retrieve(sessionId);
 
   hasActiveSession = true;
 
   // Timeout counter starts as soon as the checkout is successful...
   // TODO: Need to make sure this isn't called if there's a failed checkout
-  setTimeout(sessionTimer, 60000, 'Thats TIME!');
+  //setTimeout(sessionTimer, 60000, 'Thats TIME!');
 
-  res.send(session);
+  res.send(hasActiveSession);
 });
 
 app.post('/create-checkout-session', async (req, res) => {
@@ -175,7 +213,8 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
-app.listen(4242, () => console.log(`Node server listening on port ${4242}!`));
+// TODO: TEsting
+//app.listen(port, () => console.log(`Node server listening on port ${port}!`));
 
 // Sesion Expired Endpoint
 app.get('/session-expired', (req, res) => {
@@ -221,9 +260,9 @@ async function sessionTimer(arg) {
 }
 
 // The server object listens on port 3000.
-app.listen(3000, function () {
-  console.log("Express Started on Port 3000");
-});
+// app.listen(3000, function () {
+//   console.log("Express Started on Port 3000");
+// });
 
 /**
  * Generates the timestamp for Stripe to timeout the Checkout Session
