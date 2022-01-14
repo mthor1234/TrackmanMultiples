@@ -13,9 +13,7 @@ const port = process.env.PORT||4242 // setting the port
 const server = http.createServer(app);
 const socketIO = require('socket.io');
 const io = socketIO(server)
-
 const { resolve } = require('path');
-
 
 var randomNumber = (Date.now() + Math.random()).toString(36);
 console.log("Random: " + randomNumber);
@@ -32,7 +30,6 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
   },
    maxNetworkRetries: 3
 });
-
 
 app.use(express.static(process.env.STATIC_DIR));
 app.use(express.urlencoded());
@@ -73,8 +70,6 @@ io.on('connection', (socket)=>{
     hasActiveSession = false;
   });
   }
-
-
 });
 
 
@@ -83,6 +78,27 @@ io.on('disconnect', (socket)=>{
   hasActiveSession = false;
 });
 
+
+// define the home page route
+app.get('/time-selection', function (req, res) {
+  console.log('Index hit!');
+
+
+  if(hasActiveSession){
+    console.log('Sending the user to already-in-use.html');
+
+    const path = resolve(process.env.STATIC_DIR + '/already_in_use.html');
+    res.sendFile(path);
+
+  }else{
+    console.log('Sending the user to index.html');
+
+    const path = resolve(process.env.STATIC_DIR + '/index.html');
+    res.sendFile(path);
+  }
+});
+
+
 // TODO: This will be running on the PC and shouldn't be hosted / accesible by the customer
 app.get('/QR', (req, res) => {
   const path = resolve(process.env.STATIC_DIR + '/qr.html');
@@ -90,19 +106,19 @@ app.get('/QR', (req, res) => {
 });
 
 // TODO: This random number might work. Need to work on constant updating the random number to avoid user from unwanted access
-  app.get('/' + randomNumber, (req, res) => {
+app.get('/' + randomNumber, (req, res) => {
 
-    console.log("In the random number");
+  console.log("In the random number");
 
-    // Creates the JWT so we can restrict access to the club selection page
-    generateJWT();
-    const success_url = `http://localhost:4242/success.html?session_id=`+ token;
+  // Creates the JWT so we can restrict access to the club selection page
+  generateJWT();
+  const success_url = `http://localhost:4242/success.html?session_id=`+ token;
 
-    res.redirect(success_url);
-  });
+  res.redirect(success_url);
+});
 
 
-// Fetch the Checkout Session to display the JSON result on the success page
+// Fetch the Checkout Session to display the JSON result on the success pagea
 app.get('/check-session', async (req, res) => {
 
   if( isTokenValid() ){
@@ -346,6 +362,4 @@ function isTokenValid(){
 
     return isTokenValid;
 }
-
-
 
