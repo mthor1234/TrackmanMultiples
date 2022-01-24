@@ -1,26 +1,48 @@
-var hasActiveSession = false;
-var token = null;
+// LIBS //
 
 // Copy the .env.example in the root into a .env file in this folder
 require('dotenv').config({ path: './.env' });
 
-// // Trying my own token handling for handling the sessions
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const app = express();
 const http = require('http');
-const port = process.env.PORT||4242 // setting the port 
+const port = process.env.PORT || 4242 // setting the port 
 const server = http.createServer(app);
 const socketIO = require('socket.io');
 const io = socketIO(server)
 const { resolve } = require('path');
 
+// PATHS //
+const PATH_BASE = process.env.STATIC_DIR;
+const PATH_ALREADY_IN_USE = resolve(PATH_BASE + '/already_in_use.html');
+const PATH_INDEX = resolve(PATH_BASE + '/index.html');
+const PATH_QR = resolve(PATH_BASE + '/qr.html');
+const PATH_SESSION_EXPIRED = resolve(PATH_BASE + '/session_expired.html');
+const PATH_ERROR = resolve(PATH_BASE + '/error.html');
+const PATH_SUCCESS = PATH_BASE + '/success.html';
+
+
+
+// TODO: Need to auto disconnect the socket after 5 mins if the user has not gone to checkout by then
+// TODO: Should I only kick on the socket once the user has paid?
+//    I think I'm a fan of this thinking since a user shouldn't
+//    be able to block other users from using the machine unless they have paid
+//    If I stick with preventing the user before payment, it can easily be used as a way to attack
+//    Also, don't need to worry about using a timeout either
+
+var hasActiveSession = false;
+var token = null;
+
+// Append this on the end of success route to avoid users from 'hacking' into a free session
 var randomNumber = (Date.now() + Math.random()).toString(36);
 console.log("Random: " + randomNumber);
+
 
 // Ensure environment variables are set.
 checkEnv();
 
+// Sets up the Stripe constant used throughout
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2020-08-27',
   appInfo: { // For sample support and debugging, not required for production:
@@ -28,10 +50,11 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
     version: "0.0.1",
     url: "https://github.com/stripe-samples/checkout-one-time-payments"
   },
-   maxNetworkRetries: 3
+  maxNetworkRetries: 3
 });
 
-app.use(express.static(process.env.STATIC_DIR));
+
+app.use(express.static(PATH_BASE));
 app.use(express.urlencoded());
 app.use(
   express.json({
@@ -47,62 +70,53 @@ app.use(
 
 server.listen(port, () => console.log(`Node server listening on port ${port}!`));
 
+
+// SOCKET IO //
+// make a connection with the user from server side
+io.on('connection', (socket) => {
+
+  if (hasActiveSession) {
+    console.log('Theres an active socket connection. Reject this connection');
+  }
+  else {
+    console.log('New user connected... ID: ' + socket.id);
+    hasActiveSession = true;
+
+    // This is how to call the disconnect from SocketIO. 
+    // When the user navigates away from the webpage, this is called
+    socket.on('disconnect', function () {
+      console.log('user disconnected');
+      hasActiveSession = false;
+    });
+  }
+});
+
+io.on('disconnect', (socket) => {
+  console.log('SocketIO Session Disconnected');
+  hasActiveSession = false;
+});
+
 // Catches all routes to show the QR Code route
 // app.get('/*', function(req, res) {
 //   const path = resolve(process.env.STATIC_DIR + '/qr.html');
 //   res.sendFile(path);
 // });
 
-// make a connection with the user from server side
-io.on('connection', (socket)=>{
 
-  if(hasActiveSession){
-    console.log('Theres an active socket connection. Reject this connection');
-  }
-  else{
-  console.log('New user connected... ID: ' + socket.id);
-  hasActiveSession = true;
-
-    // This is how to call the disconnect from SocketIO. 
-  // When the user navigates away from the webpage, this is called
-  socket.on('disconnect', function(){
-    console.log('user disconnected');
-    hasActiveSession = false;
-  });
-  }
-});
-
-
-io.on('disconnect', (socket)=>{
-  console.log('SocketIO Session Disconnected');
-  hasActiveSession = false;
-});
-
+// ROUTES //
 
 // define the home page route
 app.get('/time-selection', function (req, res) {
   console.log('Index hit!');
+  
+  var path = resolve(routeBasedOnMachineInUse(PATH_INDEX));
+  res.sendFile(path);
 
-
-  if(hasActiveSession){
-    console.log('Sending the user to already-in-use.html');
-
-    const path = resolve(process.env.STATIC_DIR + '/already_in_use.html');
-    res.sendFile(path);
-
-  }else{
-    console.log('Sending the user to index.html');
-
-    const path = resolve(process.env.STATIC_DIR + '/index.html');
-    res.sendFile(path);
-  }
 });
-
 
 // TODO: This will be running on the PC and shouldn't be hosted / accesible by the customer
 app.get('/QR', (req, res) => {
-  const path = resolve(process.env.STATIC_DIR + '/qr.html');
-  res.sendFile(path);
+  res.sendFile(PATH_QR);
 });
 
 // TODO: This random number might work. Need to work on constant updating the random number to avoid user from unwanted access
@@ -112,20 +126,20 @@ app.get('/' + randomNumber, (req, res) => {
 
   // Creates the JWT so we can restrict access to the club selection page
   generateJWT();
-  const success_url = `http://localhost:4242/success.html?session_id=`+ token;
+
+  const success_url = `http://localhost:4242/success.html?session_id=` + token;
 
   res.redirect(success_url);
 });
 
-
-// Fetch the Checkout Session to display the JSON result on the success pagea
+// Fetch the Checkout Session to display the JSON result on the success page
 app.get('/check-session', async (req, res) => {
 
-  if( isTokenValid() ){
+  if (isTokenValid()) {
     console.log("Token is fine")
     res.sendStatus(200)
 
-  }else{
+  } else {
 
     console.log("Want to send them to the beginning or session expired")
     res.status(403);
@@ -138,9 +152,6 @@ app.get('/check-session', async (req, res) => {
 
 // Fetch the Checkout Session to display the JSON result on the success page
 app.get('/checkout-session', async (req, res) => {
-  //const { sessionId } = req.query;
-  //const session = await stripe.checkout.sessions.retrieve(sessionId);
-
   hasActiveSession = true;
 
   // Timeout counter starts as soon as the checkout is successful...
@@ -150,11 +161,32 @@ app.get('/checkout-session', async (req, res) => {
   res.send(hasActiveSession);
 });
 
+// Sesion Expired Endpoint
+app.get('/session-expired', (req, res) => {
+  res.sendFile(PATH_SESSION_EXPIRED);
+
+  // Session has expired. Lower the flag
+  hasActiveSession = false;
+});
+
+app.get('/error', (req, res) => {
+  res.sendFile(PATH_ERROR);
+});
+
+app.get('/config', async (req, res) => {
+  const price = await stripe.prices.retrieve(process.env.PRICE);
+
+  res.send({
+    publicKey: process.env.STRIPE_PUBLISHABLE_KEY,
+    unitAmount: price.unit_amount,
+    currency: price.currency,
+  });
+});
+
 app.post('/create-checkout-session', async (req, res) => {
 
   if (hasActiveSession) {
-    const path = resolve(process.env.STATIC_DIR + '/already_in_use.html');
-    res.sendFile(path);
+    res.sendFile(PATH_ALREADY_IN_USE);
   } else {
 
     const domainURL = process.env.DOMAIN;
@@ -229,38 +261,9 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
-// TODO: TEsting
-//app.listen(port, () => console.log(`Node server listening on port ${port}!`));
-
-// Sesion Expired Endpoint
-app.get('/session-expired', (req, res) => {
-  const path = resolve(process.env.STATIC_DIR + '/session_expired.html');
-  res.sendFile(path);
-
-  // Session has expired. Lower the flag
-  hasActiveSession = false;
-});
-
-// Sesion Expired Endpoint
 app.post('/send', (req, res) => {
   console.log(req.body.email_address)
   sendEmail(req.body.email_address, res)
-});
-
-// Sesion Expired Endpoint
-app.get('/error', (req, res) => {
-  const path = resolve(process.env.STATIC_DIR + '/error.html');
-  res.sendFile(path);
-});
-
-app.get('/config', async (req, res) => {
-  const price = await stripe.prices.retrieve(process.env.PRICE);
-
-  res.send({
-    publicKey: process.env.STRIPE_PUBLISHABLE_KEY,
-    unitAmount: price.unit_amount,
-    currency: price.currency,
-  });
 });
 
 function checkEnv() {
@@ -275,10 +278,18 @@ async function sessionTimer(arg) {
   console.log(`TimedOut => ${arg}`);
 }
 
-// The server object listens on port 3000.
-// app.listen(3000, function () {
-//   console.log("Express Started on Port 3000");
-// });
+// TODO: Is there an easy way to have this called this as a middleware instead of needed to add it to each route?
+//    I tried 
+//      * emiting a redirect on Socket.IO connect -> Error "Not allowed to load local resource" 
+//      * app.use(...) -> Didn't work / timing wasn't working with SocketIO
+function routeBasedOnMachineInUse(happyPath){
+
+  if(hasActiveSession){
+    console.log('Sending the user to already-in-use.html');
+    return PATH_ALREADY_IN_USE
+  }
+  return happyPath
+}
 
 /**
  * Generates the timestamp for Stripe to timeout the Checkout Session
@@ -342,24 +353,24 @@ function sendEmail(customersEmail, res) {
 
 // Signs the JWT with an expiration time
 function generateJWT(username) {
-  token = jwt.sign({username}, process.env.TOKEN_SECRET, { expiresIn: '10s', });
+  token = jwt.sign({ username }, process.env.TOKEN_SECRET, { expiresIn: '10s', });
 }
 
 // Check if the JWT is still valid
-function isTokenValid(){
+function isTokenValid() {
 
-    var isTokenValid = false;
+  var isTokenValid = false;
 
-    // Check if the JWT has expired / is still valid
-    jwt.verify(token, process.env.TOKEN_SECRET, function(err, decoded) {
-      if (err) {
-        console.log("Token is EXPIRED!");  
-      }else{
-        console.log("Token is GOOD!");
-        isTokenValid = true;
-      }
-    });
+  // Check if the JWT has expired / is still valid
+  jwt.verify(token, process.env.TOKEN_SECRET, function (err, decoded) {
+    if (err) {
+      console.log("Token is EXPIRED!");
+    } else {
+      console.log("Token is GOOD!");
+      isTokenValid = true;
+    }
+  });
 
-    return isTokenValid;
+  return isTokenValid;
 }
 
