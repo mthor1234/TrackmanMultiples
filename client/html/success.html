@@ -14,16 +14,15 @@
 
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script src="./success.js" defer></script>
+  <script src="/socket.io/socket.io.js"></script>
   
 </head>
 
 <script>
   setTimeout(function () {
-     // after 2 seconds
      // Redirects to the expired page
      window.location.href='/session_expired.html';
-    // window.location.href='/session_expired.php';
-  }, 10000)
+  }, 20000)
 </script>
 
 <body>

@@ -4,55 +4,28 @@
 var urlParams = new URLSearchParams(window.location.search);
 var sessionId = urlParams.get('session_id');
 
-// if (sessionId) {
-//   fetch('/checkout-session?sessionId=' + sessionId)
-//     .then(function (result) {
-//       return result.json();
-//     })
-//     .then(function (session) {
-//       var sessionJSON = JSON.stringify(session, null, 2);
-//       document.querySelector('pre').textContent = sessionJSON;
-//     })
-//     .catch(function (err) {
-//       console.log('Error when fetching Checkout session', err);
-//     });
-// }
+//First Connect to the Server on the Specific URL (HOST:PORT)
+var socket = io.connect('http://localhost:4242');
 
-console.log("TEST1: " + sessionId);
+// make connection with server from user side
+socket.on('connect', function(){
+  console.log('Connected to Server')
+}
+);
+// message listener from server
+socket.on('newMessage', function(message){
+ console.log(message);
+});
 
 
-// Testing
-// if (sessionId) {
-//   console.log("TEST2");
-//   // fetch('/check-session?sessionId=' + sessionId)
-//   fetch('/check-session')
-//   .then(response => response.json())
-//     .then(function (result) {
-//       console.log("Result: " +  result);
-
-//       if(result === 403){
-//         console.log("403 FOUND!");
-//       }
-
-      
-//     })
-//     .then(function (session) {
-//       var sessionJSON = JSON.stringify(session, null, 2);
-//       document.querySelector('pre').textContent = sessionJSON;
-//     })
-//     .catch(function (err) {
-//       console.log('Error when fetching Checkout session', err);
-
-//       // TODO: Testing
-//       //window.location.href='/session_expired.html';
-//     });
-// }
-
+// when disconnected from server
+socket.on('disconnect', function(){
+  console.log('Disconnect from server')
+});
 
 // Testing
 if (sessionId) {
   console.log("TEST3");
-  // fetch('/check-session?sessionId=' + sessionId)
   fetch('/check-session')
   .then((response) => {
     if (response.status >= 200 && response.status <= 299) {
@@ -80,8 +53,6 @@ if (sessionId) {
     console.log(error);
   });
 }
-
-
 
 // TIMER Below
 

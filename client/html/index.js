@@ -4,8 +4,34 @@ var MAX_MULTIPLES = 4;
 
 var quantityInput = document.getElementById('quantity-input');
 
+//First Connect to the Server on the Specific URL (HOST:PORT)
+var socket = io.connect('http://localhost:4242');
+
+// make connection with server from user side
+socket.on('connect', function(){
+  console.log('Connected to Server')
+}
+);
+// message listener from server
+socket.on('newMessage', function(message){
+ console.log(message);
+});
+
+//Now Listen for Events (welcome event).
+socket.on("welcome", (data) => {
+  /*For the listener we specify the event name and we give the callback to which be called one the 
+  event is emitted*/
+  //Log the Welcome message 
+  console.log("Message: ", data);
+});
+
+// when disconnected from server
+socket.on('disconnect', function(){
+  console.log('Disconnect from server')
+});
+
 quantityInput.addEventListener('change', function (e) {
-  // Ensure customers only buy between 1 and 4 photos
+  // Ensure customers only buy between 1 and 4 increments
   if (quantityInput.value < MIN_MULTIPLES) {
     quantityInput.value = MIN_MULTIPLES;
   }
