@@ -21,7 +21,16 @@ const PATH_QR = resolve(PATH_BASE + '/qr.html');
 const PATH_SESSION_EXPIRED = resolve(PATH_BASE + '/session_expired.html');
 const PATH_ERROR = resolve(PATH_BASE + '/error.html');
 const PATH_SUCCESS = PATH_BASE + '/success.html';
+const QRCode = require('qrcode');
 
+// Generates the QR Code 
+const generateQR = async text => {
+    try {
+        await QRCode.toFile('../../client/html/res/qr_code.png', text);
+    } catch (err) {
+        console.log(err);
+    }
+}
 
 
 // TODO: Need to auto disconnect the socket after 5 mins if the user has not gone to checkout by then
@@ -105,6 +114,13 @@ io.on('disconnect', (socket) => {
 
 // ROUTES //
 
+app.get('/QR_CODE', function(req, res){
+  console.log('Index hit!');
+
+  generateQR("192.168.1.4:4242/"+randomNumber);
+
+})
+
 // define the home page route
 app.get('/time-selection', function (req, res) {
   console.log('Index hit!');
@@ -121,7 +137,7 @@ app.get('/QR', (req, res) => {
 
 // TODO: This random number might work. Need to work on constant updating the random number to avoid user from unwanted access
 app.get('/' + randomNumber, (req, res) => {
-
+ 
   console.log("In the random number");
 
   // Creates the JWT so we can restrict access to the club selection page
