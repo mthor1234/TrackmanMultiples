@@ -17,20 +17,52 @@ const { resolve } = require('path');
 const PATH_BASE = process.env.STATIC_DIR;
 const PATH_ALREADY_IN_USE = resolve(PATH_BASE + '/already_in_use.html');
 const PATH_INDEX = resolve(PATH_BASE + '/index.html');
+const TIME_SELECTION_INDEX = resolve(PATH_BASE + '/time_selection.html');
 const PATH_QR = resolve(PATH_BASE + '/qr.html');
 const PATH_SESSION_EXPIRED = resolve(PATH_BASE + '/session_expired.html');
 const PATH_ERROR = resolve(PATH_BASE + '/error.html');
+const PATH_PLEASE_SCAN = resolve(PATH_BASE + '/scan_qr.html');
+
 const PATH_SUCCESS = PATH_BASE + '/success.html';
 const QRCode = require('qrcode');
 
 // Generates the QR Code 
 const generateQR = async text => {
+  console.log("CREATING A NEW QR");
+
     try {
         await QRCode.toFile('../../client/html/res/qr_code.png', text);
     } catch (err) {
         console.log(err);
     }
 }
+
+
+// Append this on the end of success route to avoid users from 'hacking' into a free session
+var randomNumber = (Date.now() + Math.random()).toString(36);
+console.log("Random: " + randomNumber);
+
+
+// TODO: Can I turn this into a lambda that just keep sgoin instead of it being in just the setInterval function
+// Generates the QR Code 
+var randomNumberQR = (Date.now() + Math.random()).toString(36);
+generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
+
+
+console.log("Random Number QR: " + randomNumberQR);
+
+var minutes = 1, the_interval = minutes * 60 * 1000;
+setInterval(function() {
+  console.log("I am doing my 1 minutes check");
+
+  randomNumberQR = (Date.now() + Math.random()).toString(36);
+  console.log("Random QR Number: " + randomNumberQR);
+
+  // Creates a QR Code for the time-selection route with the randomly generated number appended
+  generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
+
+  // do your stuff here
+}, the_interval);
 
 
 // TODO: Need to auto disconnect the socket after 5 mins if the user has not gone to checkout by then
@@ -43,9 +75,6 @@ const generateQR = async text => {
 var hasActiveSession = false;
 var token = null;
 
-// Append this on the end of success route to avoid users from 'hacking' into a free session
-var randomNumber = (Date.now() + Math.random()).toString(36);
-console.log("Random: " + randomNumber);
 
 
 // Ensure environment variables are set.
@@ -105,6 +134,10 @@ io.on('disconnect', (socket) => {
   hasActiveSession = false;
 });
 
+
+// ROUTES //
+
+// TODO: Testing
 // Catches all routes to show the QR Code route
 // app.get('/*', function(req, res) {
 //   const path = resolve(process.env.STATIC_DIR + '/qr.html');
@@ -112,22 +145,25 @@ io.on('disconnect', (socket) => {
 // });
 
 
-// ROUTES //
-
-app.get('/QR_CODE', function(req, res){
-  console.log('Index hit!');
-
-  generateQR("192.168.1.4:4242/"+randomNumber);
-
-})
-
-// define the home page route
+// TODO: Will need to remove this route eventually
 app.get('/time-selection', function (req, res) {
   console.log('Index hit!');
   
-  var path = resolve(routeBasedOnMachineInUse(PATH_INDEX));
+  var path = resolve(routeBasedOnMachineInUse(TIME_SELECTION_INDEX));
   res.sendFile(path);
+});
 
+// Time-Selection must match the randomly generated number, otherwise, it will route the scan_qr.html page
+app.get('/time-selection/:key', function (req, res) {
+  console.log('Index hit!');
+
+  if(req.params.key === randomNumberQR){
+    var path = resolve(routeBasedOnMachineInUse(TIME_SELECTION_INDEX));
+    res.sendFile(path);
+  }else{
+    // Route the user to scan the QR Code
+    res.sendFile(PATH_PLEASE_SCAN);
+  }
 });
 
 // TODO: This will be running on the PC and shouldn't be hosted / accesible by the customer
@@ -185,10 +221,12 @@ app.get('/session-expired', (req, res) => {
   hasActiveSession = false;
 });
 
+// TODO: Can probably remove this
 app.get('/error', (req, res) => {
   res.sendFile(PATH_ERROR);
 });
 
+// TODO: Can probably remove this
 app.get('/config', async (req, res) => {
   const price = await stripe.prices.retrieve(process.env.PRICE);
 

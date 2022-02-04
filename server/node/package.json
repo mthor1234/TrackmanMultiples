@@ -2,7 +2,7 @@
   "name": "checkout-one-time-payments",
   "version": "1.0.0",
   "description": "Accept payments with Stripe Checkout",
-  "main": "index.js",
+  "main": "time_selection.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
