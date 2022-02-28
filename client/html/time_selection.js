@@ -5,24 +5,44 @@ var MAX_MULTIPLES = 4;
 var quantityInput = document.getElementById('quantity-input');
 
 //First Connect to the Server on the Specific URL (HOST:PORT)
-var socket = io.connect('http://localhost:4242');
+var socket = io.connect(SOCKET_IO_URL);
+
+// User has a max of ONE_MINUTE_MILLIS on this page before it sends to user to the Scan QR page
+setTimeout(function () {
+  // Redirects to the expired page
+  window.location.href = PATH_PLEASE_SCAN;
+}, ONE_MINUTE_MILLIS)
+
+  fetch('/check-qr')
+  .then((response) =>response.json())
+  .then((data) => {
+    if (data.qr === getCode()) {
+      console.log('QR Code matches!')
+    } else {
+      // Send the user to the scan qr page
+      window.location.href = PATH_PLEASE_SCAN;
+    }
+  }).catch((error) => {
+    // Handle the error
+    console.log(error);
+
+    // Reroute if error, just to be safe
+    window.location.href = PATH_PLEASE_SCAN;
+  });
+
+  // Get the QR Code Number via the URL
+  function getCode(){
+    var sPageURL = window.location.href;
+    var sURLVariables = sPageURL.split('time-selection/');
+
+    sParam = sURLVariables[1]
+    return sParam;
+  }
 
 // make connection with server from user side
 socket.on('connect', function(){
   console.log('Connected to Server')
-}
-);
-// message listener from server
-socket.on('newMessage', function(message){
- console.log(message);
-});
-
-//Now Listen for Events (welcome event).
-socket.on("welcome", (data) => {
-  /*For the listener we specify the event name and we give the callback to which be called one the 
-  event is emitted*/
-  //Log the Welcome message 
-  console.log("Message: ", data);
+  getCode();
 });
 
 // when disconnected from server

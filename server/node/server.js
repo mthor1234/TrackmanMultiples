@@ -1,3 +1,6 @@
+// FIXME: User is able to navigate back to the club selection page after pressing the back button
+// FIXME: Follow up. When the above happens, the timer hits 0 but nothing happens. Need to make sure the timer is functioning properly
+
 // LIBS //
 
 // Copy the .env.example in the root into a .env file in this folder
@@ -22,7 +25,7 @@ const PATH_INDEX = resolve(PATH_BASE + '/index.html');
 const TIME_SELECTION_INDEX = resolve(PATH_BASE + '/time_selection.html');
 const PATH_QR = resolve(PATH_BASE + '/qr.html');
 const PATH_SESSION_EXPIRED = resolve(PATH_BASE + '/session_expired.html');
-const PATH_ERROR = resolve(PATH_BASE + '/error.html');
+const PATH_ERROR = (PATH_BASE + '/error.html');
 const PATH_PLEASE_SCAN = resolve(PATH_BASE + '/scan_qr.html');
 const PATH_SUCCESS = PATH_BASE + '/success.html';
 
@@ -48,24 +51,12 @@ const generateQR = async text => {
     } catch (err) {
         console.log(err);
     }
-
 }
 
-// Call to create the QR code with the radomly generated number
+// Call to create the QR code with the randomly generated number
 generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
 
 console.log("Random Number QR: " + randomNumberQR);
-
-// Sets the interval to generate a new QR Code every minute based on random number
-var minutes = 1, the_interval = minutes * 60 * 1000;
-setInterval(() => generateRandomQR(), the_interval);
-
-// TODO: Need to auto disconnect the socket after 5 mins if the user has not gone to checkout by then
-// TODO: Should I only kick on the socket once the user has paid?
-//    I think I'm a fan of this thinking since a user shouldn't
-//    be able to block other users from using the machine unless they have paid
-//    If I stick with preventing the user before payment, it can easily be used as a way to attack
-//    Also, don't need to worry about using a timeout either
 
 var hasActiveSession = false;
 var token = null;
@@ -84,7 +75,6 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
   maxNetworkRetries: 3
 });
 
-
 app.use(express.static(PATH_BASE));
 app.use(express.urlencoded());
 app.use(
@@ -101,11 +91,10 @@ app.use(
 
 server.listen(port, () => console.log(`Node server listening on port ${port}!`));
 
-
 // SOCKET IO //
+
 // make a connection with the user from server side
 io.on('connection', (socket) => {
-
   if (hasActiveSession) {
     console.log('Theres an active socket connection. Reject this connection');
   }
@@ -118,13 +107,12 @@ io.on('connection', (socket) => {
     socket.on('disconnect', function () {
       console.log('user disconnected');
       hasActiveSession = false;
+
+      // Generate a new QR code everytime the customer moves away from the Time-Selection page
+      // This helps prevent a random person from logging in remote and hogging the machine even
+      generateRandomQR();
     });
   }
-});
-
-io.on('disconnect', (socket) => {
-  console.log('SocketIO Session Disconnected');
-  hasActiveSession = false;
 });
 
 //        //
@@ -136,9 +124,12 @@ app.get('/time-selection/:key', function (req, res) {
   console.log('Index hit!');
 
   if(req.params.key === randomNumberQR){
+    console.log("Number matches QR!")
     var path = resolve(routeBasedOnMachineInUse(TIME_SELECTION_INDEX));
     res.sendFile(path);
   }else{
+    console.log("Number does NOT match QR!")
+
     // Route the user to scan the QR Code
     res.sendFile(PATH_PLEASE_SCAN);
   }
@@ -149,8 +140,6 @@ app.get('/QR', (req, res) => {
   res.sendFile(PATH_QR);
 });
 
-
-// TODO: This random number might work. Need to work on constant updating the random number to avoid user from unwanted access
 app.get('/' + randomNumber, (req, res) => {
  
   console.log("In the random number");
@@ -160,14 +149,32 @@ app.get('/' + randomNumber, (req, res) => {
 
   const success_url = `http://localhost:4242/success.html?session_id=` + token;
 
+  // TODO: Testing by not setting a cache on the Success page that way it'll load a fresh page when the user navigates back via back button
+  // Seems to be working but I want to test it some more.
+  // PROBLEM: It sends me back to the credit card processing page. Instead, I want it to send the user back to the scan QR page or something
+  res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+  res.header('Expires', '-1');
+  res.header('Pragma', 'no-cache');
+
   res.redirect(success_url);
+});
+
+app.get('/expire-token', async (req, res) => {
+  console.log("EXPIRE THE TOKEN!")
+  token = null
+  // isTokenValid()
+
+  res.sendStatus(200)
 });
 
 // Fetch the Checkout Session to display the JSON result on the success page
 app.get('/check-session', async (req, res) => {
 
+  console.log("check-session");
+
   if (isTokenValid()) {
     console.log("Token is fine")
+
     res.sendStatus(200)
 
   } else {
@@ -175,20 +182,22 @@ app.get('/check-session', async (req, res) => {
     console.log("Want to send them to the beginning or session expired")
     res.status(403);
     res.send('None shall pass');
-
-    // Session has expired. Lower the flag
-    //hasActiveSession = false;
   }
+  console.log("Outside");
+});
+
+
+// Fetch the Checkout Session to display the JSON result on the success page
+app.get('/check-qr', async (req, res) => {
+  console.log("randomNumberQR " + randomNumberQR)
+
+  res.status(200)
+  res.send({qr: randomNumberQR});
 });
 
 // Fetch the Checkout Session to display the JSON result on the success page
 app.get('/checkout-session', async (req, res) => {
   hasActiveSession = true;
-
-  // Timeout counter starts as soon as the checkout is successful...
-  // TODO: Need to make sure this isn't called if there's a failed checkout
-  //setTimeout(sessionTimer, 60000, 'Thats TIME!');
-
   res.send(hasActiveSession);
 });
 
@@ -200,7 +209,7 @@ app.get('/session-expired', (req, res) => {
   hasActiveSession = false;
 });
 
-// TODO: Can probably remove this
+// Error sending an email
 app.get('/error', (req, res) => {
   res.sendFile(PATH_ERROR);
 });
@@ -302,14 +311,8 @@ function checkEnv() {
   }
 }
 
-async function sessionTimer(arg) {
-  console.log(`TimedOut => ${arg}`);
-}
-
-// TODO: Is there an easy way to have this called this as a middleware instead of needed to add it to each route?
-//    I tried 
-//      * emiting a redirect on Socket.IO connect -> Error "Not allowed to load local resource" 
-//      * app.use(...) -> Didn't work / timing wasn't working with SocketIO
+// Checks if the machine has an active session. 
+// If so, routes the user to the already in use page. Otherwise, continues onwards with the supplied path
 function routeBasedOnMachineInUse(happyPath){
 
   if(hasActiveSession){
@@ -321,6 +324,7 @@ function routeBasedOnMachineInUse(happyPath){
 
 // Generates a random number based on the current timestamp
 function generateRandomNumber(){
+  console.log("generateRandomNumber()")
   return (Date.now() + Math.random()).toString(36);
 }
 
@@ -331,6 +335,8 @@ function generateRandomQR(){
 
   // Creates a QR Code for the time-selection route with the randomly generated number appended
   generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
+
+  io.emit('qr', PATH_SESSION_EXPIRED)
 }
 
 /**
@@ -349,6 +355,7 @@ function generateTimeStampCurrentPlusOneHour() {
   return currentTimeSecondsPlusOneHour;
 }
 
+// Send the user an email
 function sendEmail(customersEmail, res) {
   console.log(`sendEmail()`);
   var nodemailer = require('nodemailer');
@@ -395,7 +402,12 @@ function sendEmail(customersEmail, res) {
 
 // Signs the JWT with an expiration time
 function generateJWT(username) {
-  token = jwt.sign({ username }, process.env.TOKEN_SECRET, { expiresIn: '10s', });
+  // token = jwt.sign({ username }, process.env.TOKEN_SECRET, { expiresIn: '10s'});
+  token = jwt.sign({ username,
+    exp: Math.floor(Date.now() / 1000) + (10),
+    iat: Math.floor(Date.now())
+  }, process.env.TOKEN_SECRET);
+  console.log("Generated a JWT")
 }
 
 // Check if the JWT is still valid
@@ -405,6 +417,7 @@ function isTokenValid() {
 
   // Check if the JWT has expired / is still valid
   jwt.verify(token, process.env.TOKEN_SECRET, function (err, decoded) {
+    console.log("Verify Token")
     if (err) {
       console.log("Token is EXPIRED!");
     } else {

@@ -17,12 +17,12 @@
   <script src="/socket.io/socket.io.js"></script>
   
 </head>
-
+<!-- TODO: Need to make sure this timeout matches what is in the JS timer. Should try to keep the logic in one spot -->
 <script>
   setTimeout(function () {
      // Redirects to the expired page
-     window.location.href='/session_expired.html';
-  }, 20000)
+    //  window.location.href='/session_expired.html';
+  }, 30000)
 </script>
 
 <body>

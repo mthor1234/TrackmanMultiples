@@ -7,6 +7,8 @@ var sessionId = urlParams.get('session_id');
 //First Connect to the Server on the Specific URL (HOST:PORT)
 var socket = io.connect('http://localhost:4242');
 
+console.log("TEST!")
+
 // make connection with server from user side
 socket.on('connect', function(){
   console.log('Connected to Server')
@@ -18,18 +20,31 @@ socket.on('newMessage', function(message){
 });
 
 
+socket.on('redirectToExpired', expirationURL => {
+  console.log('SOCKET IO: Expired Redirect');
+  // redirect to new URL
+  window.location.href = '/session_expired.html';
+});
+
+
 // when disconnected from server
 socket.on('disconnect', function(){
   console.log('Disconnect from server')
 });
 
-// Testing
+// Check if the token is good
 if (sessionId) {
-  console.log("TEST3");
+
+  console.log("Session ID!");
+
   fetch('/check-session')
   .then((response) => {
+
     if (response.status >= 200 && response.status <= 299) {
 
+      console.log('Check-session returned good')
+
+      // Session is not defined
       var sessionJSON = JSON.stringify(session, null, 2);
       document.querySelector('pre').textContent = sessionJSON;
 
@@ -52,6 +67,8 @@ if (sessionId) {
     // Handle the error
     console.log(error);
   });
+}else{
+  console.log("No Session ID!");
 }
 
 // TIMER Below
@@ -118,6 +135,17 @@ startTimer();
 
 function onTimesUp() {
   clearInterval(timerInterval);
+
+  fetch('/expire-token')
+    .then((response) => {
+      console.log("HIT EXPIRE TOKEN!")
+      // User can stil navigate back to the Club-Selection which is what we want to avoid
+
+    // Redirects to the expired page
+     window.location.href='/session_expired.html';
+
+  });
+
   console.log("TIMES UP!")
   
 }
