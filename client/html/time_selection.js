@@ -1,3 +1,14 @@
+window.addEventListener( "pageshow", function ( event ) {
+  var historyTraversal = event.persisted || 
+                         ( typeof window.performance != "undefined" && 
+                              window.performance.navigation.type === 2 );
+  if ( historyTraversal ) {
+    // Handle page restore.
+    window.location.reload();
+  }
+});
+
+
 // The max and min number of 30 min increments a customer can purchase
 var MIN_MULTIPLES = 1;
 var MAX_MULTIPLES = 4;
@@ -16,6 +27,9 @@ setTimeout(function () {
   fetch('/check-qr')
   .then((response) =>response.json())
   .then((data) => {
+
+    console.log('Fetched QR: ' + data.qr)
+
     if (data.qr === getCode()) {
       console.log('QR Code matches!')
     } else {
@@ -35,8 +49,9 @@ setTimeout(function () {
     var sPageURL = window.location.href;
     var sURLVariables = sPageURL.split('time-selection/');
 
-    sParam = sURLVariables[1]
-    return sParam;
+    qrFromURL = sURLVariables[1]
+    console.log('URL QR: ' + qrFromURL)
+    return qrFromURL;
   }
 
 // make connection with server from user side
@@ -49,6 +64,7 @@ socket.on('connect', function(){
 socket.on('disconnect', function(){
   console.log('Disconnect from server')
 });
+
 
 quantityInput.addEventListener('change', function (e) {
   // Ensure customers only buy between 1 and 4 increments

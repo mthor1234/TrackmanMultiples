@@ -1,5 +1,28 @@
+const CHECK_SESSION_INTERVAL = 10000
+
+// TODO: Back and forth ignores the expired token.... refresh works though
+//  * Eventually, the token should match the time expiration... But still, we need to be able to respect the token
+
+// TODO: Time was broken after completing a session and then going back... Says Timer is already in progress
+
+// Constantly asking the Server if the session is good to continue
+setInterval(function () {
+  console.log('Interval!')
+  checkSession()
+}, CHECK_SESSION_INTERVAL)
+
+function preventBack() {
+  window.history.forward();
+}  
+
+setTimeout("preventBack()", 0);  
+
+window.onunload = function () {
+  null
+};
+
 // TODO: Navigating back and forth to this screen resets the timer to the full amount, 
-// Probably should keep the timer running separatelyneed to persist the actual amount of time left
+// Probably should keep the timer running separately need to persist the actual amount of time left
 
 var urlParams = new URLSearchParams(window.location.search);
 var sessionId = urlParams.get('session_id');
@@ -7,25 +30,48 @@ var sessionId = urlParams.get('session_id');
 //First Connect to the Server on the Specific URL (HOST:PORT)
 var socket = io.connect('http://localhost:4242');
 
-console.log("TEST!")
+//            //
+// SOCKET IO  //
+//            //
 
-// make connection with server from user side
+// Make connection with server from user side
 socket.on('connect', function(){
   console.log('Connected to Server')
-}
-);
-// message listener from server
-socket.on('newMessage', function(message){
- console.log(message);
+
+  // Start the timer
+  socket.emit('start timer')
 });
 
+// Each time the Timer 'ticks', this is called
+socket.on('tick', (duration) => {
+  console.log('TICK! : ' + duration)
 
+  localStorage.setItem('time', duration);
+
+  document.getElementById("base-timer-label").innerHTML = formatTime(
+    duration
+  );
+
+  setCircleDasharray();
+  setRemainingPathColor(duration);
+
+  // The user's time has expired
+  if (duration === 0) {
+    onTimesUp();
+  }
+
+});
+
+socket.on('time expired', function(){
+  console.log('Whoops, time expired')
+});
+
+// Could miss this if the user refreshes at the perfect time or the socket drops out and we miss this?
 socket.on('redirectToExpired', expirationURL => {
   console.log('SOCKET IO: Expired Redirect');
   // redirect to new URL
   window.location.href = '/session_expired.html';
 });
-
 
 // when disconnected from server
 socket.on('disconnect', function(){
@@ -34,39 +80,10 @@ socket.on('disconnect', function(){
 
 // Check if the token is good
 if (sessionId) {
-
   console.log("Session ID!");
 
-  fetch('/check-session')
-  .then((response) => {
-
-    if (response.status >= 200 && response.status <= 299) {
-
-      console.log('Check-session returned good')
-
-      // Session is not defined
-      var sessionJSON = JSON.stringify(session, null, 2);
-      document.querySelector('pre').textContent = sessionJSON;
-
-      return response.json();
-    } else if(response.status == 403){
-      console.log("403 FOUND!");
-
-      // Send the user to the session expired page. 
-      // Consider sending them to the start page
-      window.location.href='/session_expired.html';
-      return response.json();
-    }
-    else {
-      throw Error(response.statusText);
-    }
-  })
-  .then((jsonResponse) => {
-    // do whatever you want with the JSON response
-  }).catch((error) => {
-    // Handle the error
-    console.log(error);
-  });
+  // Ask the server if the session is good
+  checkSession()
 }else{
   console.log("No Session ID!");
 }
@@ -91,16 +108,12 @@ const COLOR_CODES = {
   }
 };
 
-// TODO: Need to handle these
 THIRTY_SECS = 30
 THIRTY_MINS = 1800
 SIXTY_MINS = 3600
 
 const TIME_LIMIT = THIRTY_SECS;
 
-let timePassed = 0;
-
-// let timeLeft = TIME_LIMIT;
 let timeLeft = localStorage.getItem('time') || TIME_LIMIT;
 
 let timerInterval = null;
@@ -131,8 +144,6 @@ document.getElementById("timer").innerHTML = `
 </div>
 `;
 
-startTimer();
-
 function onTimesUp() {
   clearInterval(timerInterval);
 
@@ -143,31 +154,9 @@ function onTimesUp() {
 
     // Redirects to the expired page
      window.location.href='/session_expired.html';
-
   });
 
   console.log("TIMES UP!")
-  
-}
-
-function startTimer() {
-  console.log("startTimer()");
-  timerInterval = setInterval(() => {
-    timePassed = timePassed += 1;
-    timeLeft = TIME_LIMIT - timePassed;
-
-    localStorage.setItem('time', timeLeft);
-
-    document.getElementById("base-timer-label").innerHTML = formatTime(
-      timeLeft
-    );
-    setCircleDasharray();
-    setRemainingPathColor(timeLeft);
-
-    if (timeLeft === 0) {
-      onTimesUp();
-    }
-  }, 1000);
 }
 
 function formatTime(time) {
@@ -212,4 +201,34 @@ function setCircleDasharray() {
   document
     .getElementById("base-timer-path-remaining")
     .setAttribute("stroke-dasharray", circleDasharray);
+}
+
+
+function checkSession(){
+  fetch('/check-session')
+  .then((response) => {
+
+    if (response.status >= 200 && response.status <= 299) {
+
+      console.log('Check-session returned good')
+      return response.json();
+
+    } else if(response.status == 403){
+      console.log("403 FOUND!");
+
+      // Send the user to the session expired page. 
+      // Consider sending them to the start page
+      window.location.href='/session_expired.html';
+      return response.json();
+    }
+    else {
+      throw Error(response.statusText);
+    }
+  })
+  .then((jsonResponse) => {
+    // do whatever you want with the JSON response
+  }).catch((error) => {
+    // Handle the error
+    console.log(error);
+  });
 }

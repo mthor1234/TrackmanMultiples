@@ -16,7 +16,7 @@ const socketIO = require('socket.io');
 const QRCode = require('qrcode');
 const io = socketIO(server)
 const { resolve } = require('path');
-
+const { emit } = require('process');
 
 // PATHS //
 const PATH_BASE = process.env.STATIC_DIR;
@@ -32,6 +32,16 @@ const PATH_SUCCESS = PATH_BASE + '/success.html';
 // Append this on the end of success route to avoid users from 'hacking' into a free session
 var randomNumber = generateRandomNumber();
 console.log("Random: " + randomNumber);
+
+// Stores the Stripe Payment Intent so it can be cancelled if the user navigates backwards
+var paymentIntent = null
+
+// Time duration
+const TIME_DENOMINATION_IN_SECS = 1800 
+var timeRemaining = null
+var isTimerInProgress = false
+var clientSocket
+var timerInterval
 
 //                //
 // QR Generation  //
@@ -95,10 +105,23 @@ server.listen(port, () => console.log(`Node server listening on port ${port}!`))
 
 // make a connection with the user from server side
 io.on('connection', (socket) => {
+
   if (hasActiveSession) {
     console.log('Theres an active socket connection. Reject this connection');
   }
   else {
+
+
+    clientSocket = socket
+
+    // Client will tell the server to kick off the timer
+    socket.on('start timer', () => {
+      console.log('Got a start timer event!')
+
+        // startTimer(socket);
+        startTimer();
+    });
+
     console.log('New user connected... ID: ' + socket.id);
     hasActiveSession = true;
 
@@ -123,12 +146,33 @@ io.on('connection', (socket) => {
 app.get('/time-selection/:key', function (req, res) {
   console.log('Index hit!');
 
+
+
+  // Cancel any existing Payment Intent's.
+  // This helps handle the user navigating back to this page
+  if(paymentIntent != null) {
+    console.log("Payment Intent: " + status)
+
+    var status = paymentIntent.status
+    var succeeded = "succeeded"
+    var expired = "expired"
+    console.log(paymentIntent)
+
+    if(status != succeeded && status != expired){
+      cancelPaymentIntent()
+    }
+  }
+
   if(req.params.key === randomNumberQR){
     console.log("Number matches QR!")
     var path = resolve(routeBasedOnMachineInUse(TIME_SELECTION_INDEX));
     res.sendFile(path);
   }else{
     console.log("Number does NOT match QR!")
+
+    res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    res.header('Expires', '-1');
+    res.header('Pragma', 'no-cache');
 
     // Route the user to scan the QR Code
     res.sendFile(PATH_PLEASE_SCAN);
@@ -155,15 +199,13 @@ app.get('/' + randomNumber, (req, res) => {
   res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
   res.header('Expires', '-1');
   res.header('Pragma', 'no-cache');
-
+  
   res.redirect(success_url);
 });
 
 app.get('/expire-token', async (req, res) => {
   console.log("EXPIRE THE TOKEN!")
   token = null
-  // isTokenValid()
-
   res.sendStatus(200)
 });
 
@@ -186,10 +228,9 @@ app.get('/check-session', async (req, res) => {
   console.log("Outside");
 });
 
-
 // Fetch the Checkout Session to display the JSON result on the success page
 app.get('/check-qr', async (req, res) => {
-  console.log("randomNumberQR " + randomNumberQR)
+  console.log("check-qr " + randomNumberQR)
 
   res.status(200)
   res.send({qr: randomNumberQR});
@@ -205,8 +246,7 @@ app.get('/checkout-session', async (req, res) => {
 app.get('/session-expired', (req, res) => {
   res.sendFile(PATH_SESSION_EXPIRED);
 
-  // Session has expired. Lower the flag
-  hasActiveSession = false;
+  resetToStartingState()
 });
 
 // Error sending an email
@@ -228,6 +268,10 @@ app.post('/create-checkout-session', async (req, res) => {
     const domainURL = process.env.DOMAIN;
 
     const { quantity } = req.body;
+
+    timeRemaining = quantity * TIME_DENOMINATION_IN_SECS
+
+    console.log("Time Chosen: " + timeRemaining)
 
     // The list of supported payment method types. We fetch this from the
     // environment variables in this sample. In practice, users often hard code a
@@ -256,6 +300,13 @@ app.post('/create-checkout-session', async (req, res) => {
       success_url: `${domainURL}/` + randomNumber,
       cancel_url: `${domainURL}/canceled.html`,
     });
+
+    // TODO: Here's the payment Intent. Need to cancel if the user navigates backwards!
+    // TODO: Could store this in a var and any other routes, we just cancel the PI... Since we don't have access
+    // To the success page .html or .js
+    console.log("PI:" + session.payment_intent)
+    paymentIntent = session.payment_intent
+
     return res.redirect(303, session.url);
   }
 });
@@ -303,6 +354,12 @@ app.post('/send', (req, res) => {
   sendEmail(req.body.email_address, res)
 });
 
+async function cancelPaymentIntent() {
+  console.log("cancelPaymentIntent")
+  await stripe.paymentIntents.cancel(paymentIntent);
+  paymentIntent = null;
+}
+
 function checkEnv() {
   const price = process.env.PRICE_ID;
   if (price === !price) {
@@ -335,8 +392,6 @@ function generateRandomQR(){
 
   // Creates a QR Code for the time-selection route with the randomly generated number appended
   generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
-
-  io.emit('qr', PATH_SESSION_EXPIRED)
 }
 
 /**
@@ -402,12 +457,13 @@ function sendEmail(customersEmail, res) {
 
 // Signs the JWT with an expiration time
 function generateJWT(username) {
-  // token = jwt.sign({ username }, process.env.TOKEN_SECRET, { expiresIn: '10s'});
+
+  const TOKEN_EXPIRATION_SECS = 60
   token = jwt.sign({ username,
-    exp: Math.floor(Date.now() / 1000) + (10),
+    exp: Math.floor(Date.now() / 1000) + (TOKEN_EXPIRATION_SECS),
     iat: Math.floor(Date.now())
   }, process.env.TOKEN_SECRET);
-  console.log("Generated a JWT")
+  console.log("Generated a JWT: " + Date(token.exp))
 }
 
 // Check if the JWT is still valid
@@ -420,6 +476,12 @@ function isTokenValid() {
     console.log("Verify Token")
     if (err) {
       console.log("Token is EXPIRED!");
+
+      // TODO: Testing this
+      clearInterval(timerInterval);
+      timeRemaining = 0
+      isTimerInProgress = false
+      clientSocket = null
     } else {
       console.log("Token is GOOD!");
       isTokenValid = true;
@@ -428,4 +490,52 @@ function isTokenValid() {
 
   return isTokenValid;
 }
+
+// TODO: Getting duplicate timers when navigating back and forth.
+// I can try prevent this with an if/else check but I lose the socket so the
+// Client stops getting the 'tick' event.
+// Maybe I can update the socket to the new client? 
+// Somehow update the interval?
+// function startTimer(theSocket) {
+function startTimer() {
+  console.log("startTimer")
+
+  // Timer is not active, so we start it
+  if(isTimerInProgress === false){
+    isTimerInProgress = true
+
+  timerInterval = setInterval(function () {
+
+    timeRemaining--
+      console.log(timeRemaining)
+      clientSocket.emit("tick", timeRemaining)
+
+      if (timeRemaining <= 0) {
+        console.log("DONE!")
+        clientSocket.emit("time expired")
+
+        clearInterval(timerInterval);
+      }
+  }, 1000);
+  } else {
+    console.log("Timer is already in progress. Ignoring")
+
+  }
+}
+
+// Sets all of the key vars to their beginning state
+function resetToStartingState(){
+    // Free up the timer
+    isTimerInProgress = false
+
+    // Lower the flag
+    hasActiveSession = false;
+  
+    // TODO: Testing resetting these
+    clearInterval(timerInterval)
+    timeRemaining = 0
+    clientSocket = null
+    paymentIntent = null
+}
+
 
