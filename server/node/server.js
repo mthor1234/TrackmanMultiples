@@ -18,6 +18,23 @@ const io = socketIO(server)
 const { resolve } = require('path');
 const { emit } = require('process');
 
+// Nodemailer
+const nodemailer = require('nodemailer');
+const { google } = require("googleapis");
+const OAuth2 = google.auth.OAuth2;
+
+const oauth2Client = new OAuth2(
+  process.env.OAUTH_CLIENT_ID, // ClientID
+  process.env.OAUTH_CLIENT_SECRET, // Client Secret
+  process.env.OAUTH_REDIRECT_EMAIL, // Redirect URL
+);
+
+oauth2Client.setCredentials({
+  refresh_token: process.env.OAUTH_REFRESH_TOKEN
+});
+
+// const accessToken = oauth2Client.getAccessToken()
+
 // PATHS //
 const PATH_BASE = process.env.STATIC_DIR;
 const PATH_ALREADY_IN_USE = resolve(PATH_BASE + '/already_in_use.html');
@@ -151,11 +168,12 @@ app.get('/time-selection/:key', function (req, res) {
   // Cancel any existing Payment Intent's.
   // This helps handle the user navigating back to this page
   if(paymentIntent != null) {
-    console.log("Payment Intent: " + status)
 
     var status = paymentIntent.status
     var succeeded = "succeeded"
     var expired = "expired"
+    console.log("Payment Intent: " + status)
+
     console.log(paymentIntent)
 
     if(status != succeeded && status != expired){
@@ -411,49 +429,70 @@ function generateTimeStampCurrentPlusOneHour() {
 }
 
 // Send the user an email
-function sendEmail(customersEmail, res) {
+async function sendEmail(customersEmail, res) {
   console.log(`sendEmail()`);
-  var nodemailer = require('nodemailer');
+
   var email = process.env.EMAIL;
-  var password = process.env.EMAIL_PASSWORD;
+  var clientID = process.env.OAUTH_CLIENT_ID;
+  var clientSecret = process.env.OAUTH_CLIENT_SECRET;
+  var refreshToken = process.env.OAUTH_REFRESH_TOKEN;
+  var accessToken = process.env.OAUTH_ACCESS_TOKEN;
 
-  var transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: email,
-      pass: password
-    }
+  try {
+
+    let transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: {
+        type: 'OAuth2',
+          user: email,
+          clientId: clientID,
+          clientSecret: clientSecret,
+          refreshToken: refreshToken,
+          accessToken: accessToken,
+          expires: 1647579898000
+      }
   });
 
-  var mailOptions = {
-    from: email,
-    to: customersEmail,
-    subject: 'Trackman Session',
-    text: 'That was easy!'
-  };
 
-  transporter.sendMail(mailOptions, function (error, info) {
+    var mailOptions = {
+      from: email,
+      to: customersEmail,
+      subject: 'Trackman Session',
+      text: 'That was easy!'
+    };
 
-    // Machine is no longer in use. Lower the flag
-    hasActiveSession = false;
+      const result = await transporter.sendMail(mailOptions, function (error, info) {
 
-    if (error) {
+      // Machine is no longer in use. Lower the flag
+      hasActiveSession = false;
 
-      console.log(error);
+      if (error) {
 
-      //redirect to error screen
-      res.statusCode = 302;
-      res.setHeader('Location', '/error');
+        console.log(error);
 
-    } else {
-      console.log('Email sent: ' + info.response);
-      //Email sent, send the user back to the home screen
-      res.statusCode = 302;
-      res.setHeader('Location', '/');
-      return res.end();
-    }
-  });
+        //redirect to error screen
+        res.statusCode = 302;
+        res.setHeader('Location', '/error');
+
+      } else {
+        console.log('Email sent: ' + info.response);
+        //Email sent, send the user back to the home screen
+        res.statusCode = 302;
+        res.setHeader('Location', '/');
+        return res.end();
+      }
+    });
+    // Set up the email options and delivering it
+  return result;
+
+  }catch(error) {
+    return error
+  }
 }
+
+
 
 // Signs the JWT with an expiration time
 function generateJWT(username) {
