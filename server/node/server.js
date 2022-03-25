@@ -10,7 +10,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const app = express();
 const http = require('http');
-const port = process.env.PORT || 4242 // setting the port 
+const port = process.env.PORT || 8888 // setting the port 
 const server = http.createServer(app);
 const socketIO = require('socket.io');
 const QRCode = require('qrcode');
@@ -21,6 +21,7 @@ const { emit } = require('process');
 // Nodemailer
 const nodemailer = require('nodemailer');
 const { google } = require("googleapis");
+const { Domain } = require('domain');
 const OAuth2 = google.auth.OAuth2;
 
 const oauth2Client = new OAuth2(
@@ -81,7 +82,9 @@ const generateQR = async text => {
 }
 
 // Call to create the QR code with the randomly generated number
-generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
+// generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
+// generateQR("http://localhost:" + port + "/time-selection/" + randomNumberQR);
+generateQR(process.env.DOMAIN +  "/time-selection/" + randomNumberQR);
 
 console.log("Random Number QR: " + randomNumberQR);
 
@@ -128,15 +131,12 @@ io.on('connection', (socket) => {
   }
   else {
 
-
     clientSocket = socket
 
     // Client will tell the server to kick off the timer
     socket.on('start timer', () => {
       console.log('Got a start timer event!')
-
-        // startTimer(socket);
-        startTimer();
+      startTimer();
     });
 
     console.log('New user connected... ID: ' + socket.id);
@@ -162,8 +162,6 @@ io.on('connection', (socket) => {
 // Time-Selection must match the randomly generated number, otherwise, it will route the scan_qr.html page
 app.get('/time-selection/:key', function (req, res) {
   console.log('Index hit!');
-
-
 
   // Cancel any existing Payment Intent's.
   // This helps handle the user navigating back to this page
@@ -209,7 +207,7 @@ app.get('/' + randomNumber, (req, res) => {
   // Creates the JWT so we can restrict access to the club selection page
   generateJWT();
 
-  const success_url = `http://localhost:4242/success.html?session_id=` + token;
+  const success_url = process.env.DOMAIN + `/success.html?session_id=` + token;
 
   // TODO: Testing by not setting a cache on the Success page that way it'll load a fresh page when the user navigates back via back button
   // Seems to be working but I want to test it some more.
@@ -409,7 +407,8 @@ function generateRandomQR(){
   console.log("Random QR Number: " + randomNumberQR);
 
   // Creates a QR Code for the time-selection route with the randomly generated number appended
-  generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
+  // generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
+  generateQR(process.env.DOMAIN + "/time-selection/" + randomNumberQR);
 }
 
 /**
@@ -455,7 +454,6 @@ async function sendEmail(customersEmail, res) {
       }
   });
 
-
     var mailOptions = {
       from: email,
       to: customersEmail,
@@ -491,8 +489,6 @@ async function sendEmail(customersEmail, res) {
     return error
   }
 }
-
-
 
 // Signs the JWT with an expiration time
 function generateJWT(username) {
@@ -541,9 +537,14 @@ function startTimer() {
 
   // Timer is not active, so we start it
   if(isTimerInProgress === false){
+    console.log("Timer is not in progress... Start it up!")
+
     isTimerInProgress = true
 
   timerInterval = setInterval(function () {
+
+    console.log("Time remaining: " + timeRemaining)
+
 
     timeRemaining--
       console.log(timeRemaining)
