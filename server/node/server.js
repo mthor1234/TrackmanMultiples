@@ -364,6 +364,8 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
+// TODO: Need to handle if email doesn't send... Right now, it just loads forever
+
 // Sends the Trackman Session to the User's email
 app.post('/send', (req, res) => {
   console.log(req.body.email_address)
