@@ -488,7 +488,12 @@ async function sendEmail(customersEmail, res) {
   return result;
 
   }catch(error) {
-    return error
+
+    console.log(error);
+
+    res.statusCode = 302;
+    res.setHeader('Location', '/');
+    return res.end();
   }
 }
 
