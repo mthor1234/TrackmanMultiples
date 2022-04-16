@@ -1,5 +1,5 @@
-// FIXME: User is able to navigate back to the club selection page after pressing the back button
-// FIXME: Follow up. When the above happens, the timer hits 0 but nothing happens. Need to make sure the timer is functioning properly
+// TODO: Sometimes navigating backwards from the payment intent can cause problems with the
+//    Next scan QR
 
 // LIBS //
 
@@ -34,8 +34,6 @@ oauth2Client.setCredentials({
   refresh_token: process.env.OAUTH_REFRESH_TOKEN
 });
 
-// const accessToken = oauth2Client.getAccessToken()
-
 // PATHS //
 const PATH_BASE = process.env.STATIC_DIR;
 const PATH_ALREADY_IN_USE = resolve(PATH_BASE + '/already_in_use.html');
@@ -47,6 +45,10 @@ const PATH_ERROR = (PATH_BASE + '/error.html');
 const PATH_PLEASE_SCAN = resolve(PATH_BASE + '/scan_qr.html');
 const PATH_SUCCESS = PATH_BASE + '/success.html';
 
+// ROUTES //
+const ROUTE_PLEASE_SCAN = PATH_BASE + "/scan-QR";
+
+
 // Append this on the end of success route to avoid users from 'hacking' into a free session
 var randomNumber = generateRandomNumber();
 console.log("Random: " + randomNumber);
@@ -56,10 +58,12 @@ var paymentIntent = null
 
 // Time duration
 const TIME_DENOMINATION_IN_SECS = 1800 
+const THREE_MINS_MILLIS = 180000 
 var timeRemaining = null
 var isTimerInProgress = false
 var clientSocket
 var timerInterval
+var paymentIntentTimer = null
 
 //                //
 // QR Generation  //
@@ -82,8 +86,6 @@ const generateQR = async text => {
 }
 
 // Call to create the QR code with the randomly generated number
-// generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
-// generateQR("http://localhost:" + port + "/time-selection/" + randomNumberQR);
 generateQR(process.env.DOMAIN +  "/time-selection/" + randomNumberQR);
 
 console.log("Random Number QR: " + randomNumberQR);
@@ -118,6 +120,14 @@ app.use(
     },
   })
 );
+
+// TODO: Testing
+app.use(function (req, res, next) {
+  res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+  res.header('Expires', '-1');
+  res.header('Pragma', 'no-cache');
+  next()
+});
 
 server.listen(port, () => console.log(`Node server listening on port ${port}!`));
 
@@ -175,6 +185,7 @@ app.get('/time-selection/:key', function (req, res) {
     console.log(paymentIntent)
 
     if(status != succeeded && status != expired){
+      paymentIntentTimer = null
       cancelPaymentIntent()
     }
   }
@@ -183,6 +194,7 @@ app.get('/time-selection/:key', function (req, res) {
     console.log("Number matches QR!")
     var path = resolve(routeBasedOnMachineInUse(TIME_SELECTION_INDEX));
     res.sendFile(path);
+
   }else{
     console.log("Number does NOT match QR!")
 
@@ -191,7 +203,7 @@ app.get('/time-selection/:key', function (req, res) {
     res.header('Pragma', 'no-cache');
 
     // Route the user to scan the QR Code
-    res.sendFile(PATH_PLEASE_SCAN);
+    res.redirect(303, ROUTE_PLEASE_SCAN);
   }
 });
 
@@ -204,18 +216,19 @@ app.get('/' + randomNumber, (req, res) => {
  
   console.log("In the random number");
 
+  if(paymentIntentTimer != null){
+    // This stops us from cancelling the Payment Intent. 
+    // We no longer need to cancel the PI since the user has successfully paid 
+    clearTimeout(paymentIntentTimer)
+  }
+
   // Creates the JWT so we can restrict access to the club selection page
   generateJWT();
 
-  const success_url = process.env.DOMAIN + `/success.html?session_id=` + token;
+  const success_url = process.env.DOMAIN + `/successful_purchase.html?session_id=` + token;
 
-  // TODO: Testing by not setting a cache on the Success page that way it'll load a fresh page when the user navigates back via back button
-  // Seems to be working but I want to test it some more.
-  // PROBLEM: It sends me back to the credit card processing page. Instead, I want it to send the user back to the scan QR page or something
-  res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-  res.header('Expires', '-1');
-  res.header('Pragma', 'no-cache');
-  
+  // TODO: Kick off the trackman session and timer
+
   res.redirect(success_url);
 });
 
@@ -270,6 +283,11 @@ app.get('/error', (req, res) => {
   res.sendFile(PATH_ERROR);
 });
 
+// Tells user to scan the QR Code
+app.get('/scan-QR', function(req, res) {
+  res.sendFile(PATH_PLEASE_SCAN);
+});
+
 // Catches all routes to show the QR Code route
 app.get('/*', function(req, res) {
   res.sendFile(PATH_PLEASE_SCAN);
@@ -317,11 +335,10 @@ app.post('/create-checkout-session', async (req, res) => {
       cancel_url: `${domainURL}/canceled.html`,
     });
 
-    // TODO: Here's the payment Intent. Need to cancel if the user navigates backwards!
-    // TODO: Could store this in a var and any other routes, we just cancel the PI... Since we don't have access
-    // To the success page .html or .js
     console.log("PI:" + session.payment_intent)
     paymentIntent = session.payment_intent
+
+    createPaymentIntentTimer()
 
     return res.redirect(303, session.url);
   }
@@ -374,7 +391,7 @@ app.post('/send', (req, res) => {
 
 async function cancelPaymentIntent() {
   console.log("cancelPaymentIntent")
-  await stripe.paymentIntents.cancel(paymentIntent);
+  session = await stripe.paymentIntents.cancel(paymentIntent);
   paymentIntent = null;
 }
 
@@ -409,7 +426,6 @@ function generateRandomQR(){
   console.log("Random QR Number: " + randomNumberQR);
 
   // Creates a QR Code for the time-selection route with the randomly generated number appended
-  // generateQR("http://localhost:4242/time-selection/" + randomNumberQR);
   generateQR(process.env.DOMAIN + "/time-selection/" + randomNumberQR);
 }
 
@@ -519,7 +535,6 @@ function isTokenValid() {
     if (err) {
       console.log("Token is EXPIRED!");
 
-      // TODO: Testing this
       clearInterval(timerInterval);
       timeRemaining = 0
       isTimerInProgress = false
@@ -578,11 +593,21 @@ function resetToStartingState(){
     // Lower the flag
     hasActiveSession = false;
   
-    // TODO: Testing resetting these
     clearInterval(timerInterval)
     timeRemaining = 0
     clientSocket = null
     paymentIntent = null
+}
+
+function createPaymentIntentTimer(){
+    paymentIntentTimer = setTimeout(async function(){
+
+      console.log("Trying to expire the session!")
+
+      cancelPaymentIntent()
+      hasActiveSession = false
+
+    }, THREE_MINS_MILLIS)
 }
 
 
