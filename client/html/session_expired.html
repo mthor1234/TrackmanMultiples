@@ -3,8 +3,9 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
+  <meta name="viewport" 
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+      
   <title>Session Expired</title>
 
   <link rel="icon" href="favicon.ico" type="image/x-icon" />
@@ -25,20 +26,26 @@
       <div class="session-expired view">
         <h1>Session Expired</h1>
         <h2>Thank You!</h2>
-        </br>
+      </br>
+
+      <form action="/" method="GET">
+        <button>Next</button>
+      </form>
+
+      <!-- No longer using the email feature -->
+        <!-- </br>
         </br>
         <div class="mail">
           <h2>Email address to send your Trackman session</h2>
           <form name="emailform" id="emailForm1" method="POST" action="send">
-            <!-- Need an actual email validation check -->
             <input type="email" name="email_address" id="email" size="30" required>
             <input type="submit" name="submit" id="email_submit" value="Submit" />
           </form>
           <form action="/" method="GET">
             <button>Skip</button>
         </form>
-        </div>
-          </div>
+        </div> -->
+      </div>
     </div>
   </div>
 </body>

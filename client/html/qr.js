@@ -1,4 +1,4 @@
-const QRCode = require('qrcode');
+// const QRCode = require('qrcode');
 
 const generateQR = async text => {
     try {
@@ -8,5 +8,5 @@ const generateQR = async text => {
     }
 }
 
-generateQR("192.168.1.4:4242/time-selection");
+generateQR(SOCKET_IO_URL + "/time-selection");
 

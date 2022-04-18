@@ -35,3 +35,6 @@ target/
 .factorypath
 .project
 .secrets
+
+# Google Service Account
+trackman-343506-f9852d763fba.json

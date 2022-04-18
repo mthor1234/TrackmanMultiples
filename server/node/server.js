@@ -69,8 +69,6 @@ var paymentIntentTimer = null
 // QR Generation  //
 //                //
 
-// TODO: Can I turn this into a lambda that just keep going instead of it being in just the setInterval function
-// Generates the QR Code 
 var randomNumberQR = generateRandomNumber();
 
 // Generates the QR Code image and saves it to the /res directory

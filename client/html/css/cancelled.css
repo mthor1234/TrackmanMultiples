@@ -1,0 +1,10 @@
+h1 {
+    font-size: 64pt;
+    color: black;
+    text-align: center;
+}
+
+button {
+    display: block;
+    width: 100%;
+}

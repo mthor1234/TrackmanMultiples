@@ -3,7 +3,8 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" 
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
 
   <title>Stripe Checkout Sample</title>
 
@@ -15,6 +16,8 @@
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script src="./success.js" defer></script>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="./globals.js"></script>
+
   
 </head>
 <!-- TODO: Need to make sure this timeout matches what is in the JS timer. Should try to keep the logic in one spot -->
@@ -277,7 +280,7 @@
                 </div>
               </li>
               <li>
-                <input type="radio" name="1">
+                <input type="radio" name="1" id="1234">
                 <label>D</label>
                 <div class="bullet">
                   <div class="line two">

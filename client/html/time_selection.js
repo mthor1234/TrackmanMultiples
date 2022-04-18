@@ -8,7 +8,6 @@ window.addEventListener( "pageshow", function ( event ) {
   }
 });
 
-
 // The max and min number of 30 min increments a customer can purchase
 var MIN_MULTIPLES = 1;
 var MAX_MULTIPLES = 4;

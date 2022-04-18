@@ -1,3 +1,18 @@
+// Pressing back button when timer has started then navigating back causes the timer
+// To have a crazy number. Need to fix this
+
+// Need to test further.. it worked once but failed the 2nd time
+// I think it fails if there is no user interaction.. Similar to my attempts with unbeforeload
+// It works when I press a club but fails if I don't press anything
+// https://stackoverflow.com/questions/19926641/how-to-disable-the-back-button-in-the-browser-using-javascript
+history.pushState(null, null, document.URL);
+window.addEventListener('popstate', function () {
+    history.pushState(null, null, document.URL);
+});
+
+
+// TODO: Need to limit the checkout page to 5 mins. 
+//    Don't want someone on that page blocking everyone forever
 const CHECK_SESSION_INTERVAL = 10000
 
 // TODO: Back and forth ignores the expired token.... refresh works though
@@ -11,24 +26,17 @@ setInterval(function () {
   checkSession()
 }, CHECK_SESSION_INTERVAL)
 
-function preventBack() {
-  window.history.forward();
-}  
 
-setTimeout("preventBack()", 0);  
+history.pushState(null, null, window.location.href);
+history.back();
+window.onpopstate = () => history.forward();
 
-window.onunload = function () {
-  null
-};
-
-// TODO: Navigating back and forth to this screen resets the timer to the full amount, 
-// Probably should keep the timer running separately need to persist the actual amount of time left
 
 var urlParams = new URLSearchParams(window.location.search);
 var sessionId = urlParams.get('session_id');
 
 //First Connect to the Server on the Specific URL (HOST:PORT)
-var socket = io.connect('http://localhost:4242');
+var socket = io.connect(SOCKET_IO_URL);
 
 //            //
 // SOCKET IO  //
@@ -59,7 +67,6 @@ socket.on('tick', (duration) => {
   if (duration === 0) {
     onTimesUp();
   }
-
 });
 
 socket.on('time expired', function(){
@@ -215,6 +222,9 @@ function checkSession(){
 
     } else if(response.status == 403){
       console.log("403 FOUND!");
+
+      // TODO: Testing this
+      onTimesUp()
 
       // Send the user to the session expired page. 
       // Consider sending them to the start page
