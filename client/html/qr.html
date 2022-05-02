@@ -8,10 +8,12 @@
     <title>Scan Me</title>
 
     <link rel="stylesheet" href="css/qr.css" />
+    <link rel="stylesheet" href='/css/normalize.css' />
+    <link rel="stylesheet" href='/css/global.css' />
 
     <script src="./qr.js" defer></script>
-    <script src="./qr.js" defer></script>
     <script src="./globals.js"></script>
+    
 
     <!-- Refreshes the html page periodically  -->
     <script type="text/javascript">
@@ -25,9 +27,29 @@
   <!-- Sets the loading -->
   <body onload="load()">
 
-    <div class="img-box">
-        <h5>Scan me to start</h5>
-        <img src="res/qr_code.png" alt="QR Code"style="width:100px;height:100px;">
+    <div class="row">
+      <div class="column">
+        <div class="qr-title">
+          <h1>TrackMan</h1>  
+        </div>
+    
+        <div class="qr-text">
+          <ul>
+            <li>Club Speed</li>
+            <li>Ball Speed</li>
+            <li>Distance</li>
+            <li>More</li>
+          </ul>
+        </div>
+      
+      </div>
+      <div class="column">
+        <div class="img-box">
+          <h1>Scan Me</h1>
+            <img src="res/qr_code.png" alt="QR Code"style="width:500px;height:500px;">
+        </div>
+      </div>
+
     </div>
   </body>
 </html>

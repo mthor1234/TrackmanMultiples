@@ -77,7 +77,12 @@ const generateQR = async text => {
   console.log("CREATING A NEW QR");
 
     try {
-        await QRCode.toFile('../../client/html/res/qr_code.png', text);
+        await QRCode.toFile('../../client/html/res/qr_code.png', text, {
+          color: {
+            dark: '#000',  // Black
+            light: '#0000' // Transparent background
+          }
+        });
     } catch (err) {
         console.log(err);
     }
