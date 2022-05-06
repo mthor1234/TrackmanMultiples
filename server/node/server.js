@@ -40,6 +40,7 @@ const PATH_ALREADY_IN_USE = resolve(PATH_BASE + '/already_in_use.html');
 const PATH_INDEX = resolve(PATH_BASE + '/index.html');
 const TIME_SELECTION_INDEX = resolve(PATH_BASE + '/time_selection.html');
 const PATH_QR = resolve(PATH_BASE + '/qr.html');
+const PATH_TIMER = resolve(PATH_BASE + '/timer.html');
 const PATH_SESSION_EXPIRED = resolve(PATH_BASE + '/session_expired.html');
 const PATH_ERROR = (PATH_BASE + '/error.html');
 const PATH_PLEASE_SCAN = resolve(PATH_BASE + '/scan_qr.html');
@@ -79,7 +80,7 @@ const generateQR = async text => {
     try {
         await QRCode.toFile('../../client/html/res/qr_code.png', text, {
           color: {
-            dark: '#000',  // Black
+            dark: '#FFF',  // White
             light: '#0000' // Transparent background
           }
         });
@@ -147,23 +148,24 @@ io.on('connection', (socket) => {
     clientSocket = socket
 
     // Client will tell the server to kick off the timer
-    socket.on('start timer', () => {
-      console.log('Got a start timer event!')
-      startTimer();
-    });
+    socket.on('time selection', () => {
+      console.log('New user connected... ID: ' + socket.id);
+      hasActiveSession = true;
+    })
 
-    console.log('New user connected... ID: ' + socket.id);
-    hasActiveSession = true;
-
+    socket.on('test', () => {
+      console.log('Received a start session!');
+    })
     // This is how to call the disconnect from SocketIO. 
     // When the user navigates away from the webpage, this is called
     socket.on('disconnect', function () {
       console.log('user disconnected');
       hasActiveSession = false;
 
+      // TODO: Testing this out
       // Generate a new QR code everytime the customer moves away from the Time-Selection page
       // This helps prevent a random person from logging in remote and hogging the machine even
-      generateRandomQR();
+      // generateRandomQR();
     });
   }
 });
@@ -215,9 +217,17 @@ app.get('/QR', (req, res) => {
   res.sendFile(PATH_QR);
 });
 
+
+app.get('/timer', (req, res) => {
+  res.sendFile(PATH_TIMER);
+});
+
+
 app.get('/' + randomNumber, (req, res) => {
  
   console.log("In the random number");
+  clientSocket.emit("hello", "world");
+
 
   if(paymentIntentTimer != null){
     // This stops us from cancelling the Payment Intent. 
@@ -229,8 +239,6 @@ app.get('/' + randomNumber, (req, res) => {
   generateJWT();
 
   const success_url = process.env.DOMAIN + `/successful_purchase.html?session_id=` + token;
-
-  // TODO: Kick off the trackman session and timer
 
   res.redirect(success_url);
 });
