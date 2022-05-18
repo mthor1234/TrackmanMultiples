@@ -1,11 +1,12 @@
 // Calls a powershell script on my local machine
-// I want this to handle resizing the browser so the QR code can be displayed in full screen
-// then dynamically resize to show the timer after payment has been processed
+// Node server can call this when it is time to show the timer
+// It will resize the existing Chrome Window to small window so it does not block the Trackman GUI
+
 
 var spawn = require("child_process").spawn,child;
 
 // child = spawn("powershell.exe",["c:\\temp\\helloworld.ps1"]);
-child = spawn("powershell.exe",["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts.ps1"]);
+child = spawn("powershell.exe",["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_timer.ps1"]);
 
 child.stdout.on("data",function(data){
     console.log("Powershell Data: " + data);

@@ -219,6 +219,9 @@ app.get('/QR', (req, res) => {
 
 
 app.get('/timer', (req, res) => {
+  
+
+  
   res.sendFile(PATH_TIMER);
 });
 
