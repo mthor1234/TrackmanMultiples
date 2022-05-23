@@ -214,14 +214,18 @@ app.get('/time-selection/:key', function (req, res) {
 
 // TODO: This will be running on the PC and shouldn't be hosted / accesible by the customer
 app.get('/QR', (req, res) => {
+
+  // Set the Chrome window size to be in 'timer' mode
+  resizeWindowForQR();
+
   res.sendFile(PATH_QR);
 });
 
 
 app.get('/timer', (req, res) => {
-  
 
-  
+  // Set the Chrome window size to be in 'timer' mode
+  resizeWindowForTimer();
   res.sendFile(PATH_TIMER);
 });
 
@@ -240,6 +244,7 @@ app.get('/' + randomNumber, (req, res) => {
 
   // Creates the JWT so we can restrict access to the club selection page
   generateJWT();
+
 
   const success_url = process.env.DOMAIN + `/successful_purchase.html?session_id=` + token;
 
@@ -622,6 +627,16 @@ function createPaymentIntentTimer(){
       hasActiveSession = false
 
     }, THREE_MINS_MILLIS)
+}
+
+function resizeWindowForTimer(){
+  var spawn = require("child_process").spawn,child;
+  child = spawn("powershell.exe",["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_timer.ps1"]);
+}
+
+function resizeWindowForQR(){
+  var spawn = require("child_process").spawn,child;
+  child = spawn("powershell.exe",["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_qr.ps1"]);
 }
 
 
