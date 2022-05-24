@@ -245,6 +245,9 @@ app.get('/' + randomNumber, (req, res) => {
   // Creates the JWT so we can restrict access to the club selection page
   generateJWT();
 
+  // Set the Chrome window size to be in 'timer' mode
+  resizeWindowForTimer();
+
 
   const success_url = process.env.DOMAIN + `/successful_purchase.html?session_id=` + token;
 
