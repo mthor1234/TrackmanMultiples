@@ -156,6 +156,11 @@ io.on('connection', (socket) => {
     socket.on('test', () => {
       console.log('Received a start session!');
     })
+
+    socket.on('start timer', () => {
+      // TODO: Need to route this to the QR page so it can resize and start the timer
+      console.log('Received a start timer!');
+    })
     // This is how to call the disconnect from SocketIO. 
     // When the user navigates away from the webpage, this is called
     socket.on('disconnect', function () {
@@ -248,9 +253,9 @@ app.get('/' + randomNumber, (req, res) => {
   // Set the Chrome window size to be in 'timer' mode
   resizeWindowForTimer();
 
-
   const success_url = process.env.DOMAIN + `/successful_purchase.html?session_id=` + token;
 
+  // res.redirect(success_url);
   res.redirect(success_url);
 });
 
@@ -259,7 +264,7 @@ app.get('/expire-token', async (req, res) => {
   token = null
   res.sendStatus(200)
 });
-
+ 
 // Fetch the Checkout Session to display the JSON result on the success page
 app.get('/check-session', async (req, res) => {
 

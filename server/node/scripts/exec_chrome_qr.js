@@ -3,8 +3,6 @@
 // It will resize the existing Chrome Window to full window so it will block the Trackman GUI
 
 var spawn = require("child_process").spawn,child;
-
-// child = spawn("powershell.exe",["c:\\temp\\helloworld.ps1"]);
 child = spawn("powershell.exe",["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_qr.ps1"]);
 
 child.stdout.on("data",function(data){
