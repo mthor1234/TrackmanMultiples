@@ -9,9 +9,24 @@ require('dotenv').config({ path: './.env' });
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const app = express();
+
+// For running the localhost website (QR and Timer)
+const appLocal = express();
+
+
 const http = require('http');
+
 const port = process.env.PORT || 8888 // setting the port 
+
+// For running the localhost website (QR and Timer)
+const portLocal = process.env.PORT_LOCAL || 9999 // setting the port 
+
 const server = http.createServer(app);
+
+// For running the localhost website (QR and Timer)
+const serverLocal = http.createServer(appLocal);
+
+
 const socketIO = require('socket.io');
 const QRCode = require('qrcode');
 const io = socketIO(server)
@@ -125,7 +140,6 @@ app.use(
   })
 );
 
-// TODO: Testing
 app.use(function (req, res, next) {
   res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
   res.header('Expires', '-1');
@@ -133,7 +147,35 @@ app.use(function (req, res, next) {
   next()
 });
 
+// For running the localhost website (QR and Timer)
+appLocal.use(express.static(PATH_BASE));
+appLocal.use(express.urlencoded());
+appLocal.use(
+  express.json({
+    // We need the raw body to verify webhook signatures.
+    // Let's compute it only when hitting the Stripe webhook endpoint.
+    verify: function (req, res, buf) {
+      if (req.originalUrl.startsWith('/webhook')) {
+        req.rawBody = buf.toString();
+      }
+    },
+  })
+);
+
+appLocal.use(function (req, res, next) {
+  res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+  res.header('Expires', '-1');
+  res.header('Pragma', 'no-cache');
+  next()
+});
+
+
+
 server.listen(port, () => console.log(`Node server listening on port ${port}!`));
+
+// For running the localhost website (QR and Timer)
+serverLocal.listen(portLocal, () => console.log(`Local Node server listening on port ${portLocal}!`));
+
 
 // SOCKET IO //
 
@@ -218,7 +260,17 @@ app.get('/time-selection/:key', function (req, res) {
 });
 
 // TODO: This will be running on the PC and shouldn't be hosted / accesible by the customer
-app.get('/QR', (req, res) => {
+// app.get('/QR', (req, res) => {
+
+//   // Set the Chrome window size to be in 'timer' mode
+//   resizeWindowForQR();
+
+//   res.sendFile(PATH_QR);
+// });
+
+
+// For running the localhost QR page
+appLocal.get('/QR', (req, res) => {
 
   // Set the Chrome window size to be in 'timer' mode
   resizeWindowForQR();
@@ -227,7 +279,15 @@ app.get('/QR', (req, res) => {
 });
 
 
-app.get('/timer', (req, res) => {
+// app.get('/timer', (req, res) => {
+
+//   // Set the Chrome window size to be in 'timer' mode
+//   resizeWindowForTimer();
+//   res.sendFile(PATH_TIMER);
+// });
+
+// For running the localhost Timer page
+appLocal.get('/timer', (req, res) => {
 
   // Set the Chrome window size to be in 'timer' mode
   resizeWindowForTimer();
