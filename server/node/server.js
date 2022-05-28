@@ -8,29 +8,12 @@ require('dotenv').config({ path: './.env' });
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const app = express();
-
-// For running the localhost website (QR and Timer)
-const appLocal = express();
-
-
 const http = require('http');
-
-const port = process.env.PORT || 8888 // setting the port 
-
-// For running the localhost website (QR and Timer)
-const portLocal = process.env.PORT_LOCAL || 9999 // setting the port 
-
-const server = http.createServer(app);
-
-// For running the localhost website (QR and Timer)
-const serverLocal = http.createServer(appLocal);
-
-
-const socketIO = require('socket.io');
 const QRCode = require('qrcode');
-const io = socketIO(server)
 const { resolve } = require('path');
+
+// SocketIO
+const socketIO = require('socket.io');
 const { emit } = require('process');
 
 // Nodemailer
@@ -49,6 +32,18 @@ oauth2Client.setCredentials({
   refresh_token: process.env.OAUTH_REFRESH_TOKEN
 });
 
+// Customer Server
+const appCustomer = express();
+const serverCustomer = http.createServer(appCustomer);
+const portCustomer = process.env.PORT_CUSTOMER || 8888
+const ioCustomer = socketIO(serverCustomer)
+
+// Kiosk Server
+const appKiosk = express();
+const serverKiosk = http.createServer(appKiosk);
+const portKiosk = process.env.PORT_KIOSK || 9999
+const ioKiosk = socketIO(serverKiosk)
+
 // PATHS //
 const PATH_BASE = process.env.STATIC_DIR;
 const PATH_ALREADY_IN_USE = resolve(PATH_BASE + '/already_in_use.html');
@@ -64,22 +59,32 @@ const PATH_SUCCESS = PATH_BASE + '/success.html';
 // ROUTES //
 const ROUTE_PLEASE_SCAN = PATH_BASE + "/scan-QR";
 
+// Time duration
+const TIME_DENOMINATION_IN_SECS = 1800 
+const THREE_MINS_MILLIS = 180000
+
+// Sets up the Stripe constant used throughout
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2020-08-27',
+  appInfo: { // For sample support and debugging, not required for production:
+    name: "stripe-samples/checkout-one-time-payments",
+    version: "0.0.1",
+    url: "https://github.com/stripe-samples/checkout-one-time-payments"
+  },
+  maxNetworkRetries: 3
+});
+
+// Stores the Stripe Payment Intent so it can be cancelled if the user navigates backwards
+var paymentIntent = null
+var timeRemaining = null
+var paymentIntentTimer = null
+var isTimerInProgress = false
+var customerSocket
+var timerInterval
 
 // Append this on the end of success route to avoid users from 'hacking' into a free session
 var randomNumber = generateRandomNumber();
 console.log("Random: " + randomNumber);
-
-// Stores the Stripe Payment Intent so it can be cancelled if the user navigates backwards
-var paymentIntent = null
-
-// Time duration
-const TIME_DENOMINATION_IN_SECS = 1800 
-const THREE_MINS_MILLIS = 180000 
-var timeRemaining = null
-var isTimerInProgress = false
-var clientSocket
-var timerInterval
-var paymentIntentTimer = null
 
 //                //
 // QR Generation  //
@@ -115,79 +120,26 @@ var token = null;
 // Ensure environment variables are set.
 checkEnv();
 
-// Sets up the Stripe constant used throughout
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2020-08-27',
-  appInfo: { // For sample support and debugging, not required for production:
-    name: "stripe-samples/checkout-one-time-payments",
-    version: "0.0.1",
-    url: "https://github.com/stripe-samples/checkout-one-time-payments"
-  },
-  maxNetworkRetries: 3
-});
+// Sets up cache-control and other goodies to handle issues with navigation
+setUpServer(appCustomer);
+setUpServer(appKiosk);
 
-app.use(express.static(PATH_BASE));
-app.use(express.urlencoded());
-app.use(
-  express.json({
-    // We need the raw body to verify webhook signatures.
-    // Let's compute it only when hitting the Stripe webhook endpoint.
-    verify: function (req, res, buf) {
-      if (req.originalUrl.startsWith('/webhook')) {
-        req.rawBody = buf.toString();
-      }
-    },
-  })
-);
-
-app.use(function (req, res, next) {
-  res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-  res.header('Expires', '-1');
-  res.header('Pragma', 'no-cache');
-  next()
-});
-
-// For running the localhost website (QR and Timer)
-appLocal.use(express.static(PATH_BASE));
-appLocal.use(express.urlencoded());
-appLocal.use(
-  express.json({
-    // We need the raw body to verify webhook signatures.
-    // Let's compute it only when hitting the Stripe webhook endpoint.
-    verify: function (req, res, buf) {
-      if (req.originalUrl.startsWith('/webhook')) {
-        req.rawBody = buf.toString();
-      }
-    },
-  })
-);
-
-appLocal.use(function (req, res, next) {
-  res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-  res.header('Expires', '-1');
-  res.header('Pragma', 'no-cache');
-  next()
-});
-
-
-
-server.listen(port, () => console.log(`Node server listening on port ${port}!`));
-
-// For running the localhost website (QR and Timer)
-serverLocal.listen(portLocal, () => console.log(`Local Node server listening on port ${portLocal}!`));
+// Launch the servers
+serverCustomer.listen(portCustomer, () => console.log(`Customer Node server listening on port ${portCustomer}!`));
+serverKiosk.listen(portKiosk, () => console.log(`Local Node server listening on port ${portKiosk}!`));
 
 
 // SOCKET IO //
 
 // make a connection with the user from server side
-io.on('connection', (socket) => {
+ioCustomer.on('connection', (socket) => {
 
   if (hasActiveSession) {
     console.log('Theres an active socket connection. Reject this connection');
   }
   else {
 
-    clientSocket = socket
+    customerSocket = socket
 
     // Client will tell the server to kick off the timer
     socket.on('time selection', () => {
@@ -217,12 +169,36 @@ io.on('connection', (socket) => {
   }
 });
 
-//        //
-// ROUTES //
-//        //
+//            //
+// ENDPOINTS  //
+//            //
+
+
+// KIOSK ENDPOINTS START
+
+appKiosk.get('/QR', (req, res) => {
+
+  // Set the Chrome window size to be in 'timer' mode
+  resizeWindowForQR();
+
+  res.sendFile(PATH_QR);
+});
+
+
+appKiosk.get('/timer', (req, res) => {
+
+  // Set the Chrome window size to be in 'timer' mode
+  resizeWindowForTimer();
+  res.sendFile(PATH_TIMER);
+});
+
+// KIOSK ENDPOINTS END
+
+
+// CUSTOMER ENDPOINTS
 
 // Time-Selection must match the randomly generated number, otherwise, it will route the scan_qr.html page
-app.get('/time-selection/:key', function (req, res) {
+appCustomer.get('/time-selection/:key', function (req, res) {
   console.log('Index hit!');
 
   // Cancel any existing Payment Intent's.
@@ -259,46 +235,10 @@ app.get('/time-selection/:key', function (req, res) {
   }
 });
 
-// TODO: This will be running on the PC and shouldn't be hosted / accesible by the customer
-// app.get('/QR', (req, res) => {
-
-//   // Set the Chrome window size to be in 'timer' mode
-//   resizeWindowForQR();
-
-//   res.sendFile(PATH_QR);
-// });
-
-
-// For running the localhost QR page
-appLocal.get('/QR', (req, res) => {
-
-  // Set the Chrome window size to be in 'timer' mode
-  resizeWindowForQR();
-
-  res.sendFile(PATH_QR);
-});
-
-
-// app.get('/timer', (req, res) => {
-
-//   // Set the Chrome window size to be in 'timer' mode
-//   resizeWindowForTimer();
-//   res.sendFile(PATH_TIMER);
-// });
-
-// For running the localhost Timer page
-appLocal.get('/timer', (req, res) => {
-
-  // Set the Chrome window size to be in 'timer' mode
-  resizeWindowForTimer();
-  res.sendFile(PATH_TIMER);
-});
-
-
-app.get('/' + randomNumber, (req, res) => {
+appCustomer.get('/' + randomNumber, (req, res) => {
  
   console.log("In the random number");
-  clientSocket.emit("hello", "world");
+  customerSocket.emit("hello", "world");
 
 
   if(paymentIntentTimer != null){
@@ -319,14 +259,14 @@ app.get('/' + randomNumber, (req, res) => {
   res.redirect(success_url);
 });
 
-app.get('/expire-token', async (req, res) => {
+appCustomer.get('/expire-token', async (req, res) => {
   console.log("EXPIRE THE TOKEN!")
   token = null
   res.sendStatus(200)
 });
  
 // Fetch the Checkout Session to display the JSON result on the success page
-app.get('/check-session', async (req, res) => {
+appCustomer.get('/check-session', async (req, res) => {
 
   console.log("check-session");
 
@@ -345,7 +285,7 @@ app.get('/check-session', async (req, res) => {
 });
 
 // Fetch the Checkout Session to display the JSON result on the success page
-app.get('/check-qr', async (req, res) => {
+appCustomer.get('/check-qr', async (req, res) => {
   console.log("check-qr " + randomNumberQR)
 
   res.status(200)
@@ -353,34 +293,34 @@ app.get('/check-qr', async (req, res) => {
 });
 
 // Fetch the Checkout Session to display the JSON result on the success page
-app.get('/checkout-session', async (req, res) => {
+appCustomer.get('/checkout-session', async (req, res) => {
   hasActiveSession = true;
   res.send(hasActiveSession);
 });
 
 // Sesion Expired Endpoint
-app.get('/session-expired', (req, res) => {
+appCustomer.get('/session-expired', (req, res) => {
   res.sendFile(PATH_SESSION_EXPIRED);
 
   resetToStartingState()
 });
 
 // Error sending an email
-app.get('/error', (req, res) => {
+appCustomer.get('/error', (req, res) => {
   res.sendFile(PATH_ERROR);
 });
 
 // Tells user to scan the QR Code
-app.get('/scan-QR', function(req, res) {
+appCustomer.get('/scan-QR', function(req, res) {
   res.sendFile(PATH_PLEASE_SCAN);
 });
 
 // Catches all routes to show the QR Code route
-app.get('/*', function(req, res) {
+appCustomer.get('/*', function(req, res) {
   res.sendFile(PATH_PLEASE_SCAN);
 });
 
-app.post('/create-checkout-session', async (req, res) => {
+appCustomer.post('/create-checkout-session', async (req, res) => {
 
   if (hasActiveSession) {
     res.sendFile(PATH_ALREADY_IN_USE);
@@ -432,7 +372,7 @@ app.post('/create-checkout-session', async (req, res) => {
 });
 
 // Webhook handler for asynchronous events.
-app.post('/webhook', async (req, res) => {
+appCustomer.post('/webhook', async (req, res) => {
   let data;
   let eventType;
   // Check if webhook signing is configured.
@@ -471,10 +411,13 @@ app.post('/webhook', async (req, res) => {
 // TODO: Need to handle if email doesn't send... Right now, it just loads forever
 
 // Sends the Trackman Session to the User's email
-app.post('/send', (req, res) => {
+appCustomer.post('/send', (req, res) => {
   console.log(req.body.email_address)
   sendEmail(req.body.email_address, res)
 });
+
+// CUSTOMER ENDPOINTS END
+
 
 async function cancelPaymentIntent() {
   console.log("cancelPaymentIntent")
@@ -625,7 +568,7 @@ function isTokenValid() {
       clearInterval(timerInterval);
       timeRemaining = 0
       isTimerInProgress = false
-      clientSocket = null
+      customerSocket = null
     } else {
       console.log("Token is GOOD!");
       isTokenValid = true;
@@ -657,11 +600,11 @@ function startTimer() {
 
     timeRemaining--
       console.log(timeRemaining)
-      clientSocket.emit("tick", timeRemaining)
+      customerSocket.emit("tick", timeRemaining)
 
       if (timeRemaining <= 0) {
         console.log("DONE!")
-        clientSocket.emit("time expired")
+        customerSocket.emit("time expired")
 
         clearInterval(timerInterval);
       }
@@ -682,7 +625,7 @@ function resetToStartingState(){
   
     clearInterval(timerInterval)
     timeRemaining = 0
-    clientSocket = null
+    customerSocket = null
     paymentIntent = null
 }
 
@@ -697,14 +640,42 @@ function createPaymentIntentTimer(){
     }, THREE_MINS_MILLIS)
 }
 
+// Calls powershell script -> Calls .ahk script -> Resizes the chrome Window for the Timer page
 function resizeWindowForTimer(){
   var spawn = require("child_process").spawn,child;
   child = spawn("powershell.exe",["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_timer.ps1"]);
 }
 
+// Calls powershell script -> Calls .ahk script -> Resizes the chrome Window for the QR page
 function resizeWindowForQR(){
   var spawn = require("child_process").spawn,child;
   child = spawn("powershell.exe",["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_qr.ps1"]);
+}
+
+
+// Sets up cache-control and other goodies to handle issues with navigation
+function setUpServer(server){
+  server.use(express.static(PATH_BASE));
+  server.use(express.urlencoded());
+  server.use(
+    express.json({
+      // We need the raw body to verify webhook signatures.
+      // Let's compute it only when hitting the Stripe webhook endpoint.
+      verify: function (req, res, buf) {
+        if (req.originalUrl.startsWith('/webhook')) {
+          req.rawBody = buf.toString();
+        }
+      },
+    })
+  );
+
+  server.use(function (req, res, next) {
+    res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    res.header('Expires', '-1');
+    res.header('Pragma', 'no-cache');
+    next()
+  });
+
 }
 
 

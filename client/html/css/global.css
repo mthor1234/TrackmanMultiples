@@ -8,8 +8,10 @@
   --orange: rgba(236, 135, 41, 1);
 
   --body-color: var(--gray-mid);
+  --background-color: var(--orange);
   --headline-color: var(--gray-dark);
   --accent-color: #0066f0;
+  --font-color: white;
   --body-font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   --radius: 6px;
   --form-width: 600px;
@@ -23,7 +25,9 @@ body {
   font-family: var(--body-font-family);
   font-size: 16px;
   color: var(--body-color);
+  background-color: var(--background-color);
   -webkit-font-smoothing: antialiased;
+
 }
 h1,
 h2,
@@ -31,18 +35,20 @@ h3,
 h4,
 h5,
 h6 {
-  color: var(--body-color);
+  color: var(--font-color);
   margin-top: 2px;
   margin-bottom: 4px;
 }
+
 h1 {
   font-size: 97px;
-  color: var(--headline-color);
+  color: var(--font-color);
 }
+
 h4 {
   font-weight: 500;
   font-size: 14px;
-  color: var(--gray-light);
+  color: var(--font-color);
 }
 
 /* Layout */

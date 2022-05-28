@@ -17,11 +17,6 @@ $(document).ready(function () {
 
     window.onbeforeunload = unloadPage;
 
-    // No longer using the email feature
-    // $('#email_submit').click(function() {
-    //   unsaved = false;
-    // });
-
   });
 
   startTimeoutHandler()
@@ -35,3 +30,20 @@ function goBackToStart() {
   console.log("Go back to start!");
   window.location.href='/index.html';
 }
+
+
+// TODO: For some reason, it is complaining that 'io' is not defined. 
+//First Connect to the Server on the Specific URL (HOST:PORT)
+var socket = io.connect(SOCKET_IO_URL);
+
+// //            //
+// // SOCKET IO  //
+// //            //
+
+// // Make connection with server from user side
+socket.on('connect', function(){
+  console.log('Connected to Server')
+
+  // Start the timer
+  socket.emit('start timer')
+});
