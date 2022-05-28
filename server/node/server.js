@@ -79,7 +79,8 @@ var paymentIntent = null
 var timeRemaining = null
 var paymentIntentTimer = null
 var isTimerInProgress = false
-var customerSocket
+var socketCustomer
+var socketKiosk
 var timerInterval
 
 // Append this on the end of success route to avoid users from 'hacking' into a free session
@@ -132,6 +133,14 @@ serverKiosk.listen(portKiosk, () => console.log(`Local Node server listening on 
 // SOCKET IO //
 
 // make a connection with the user from server side
+ioKiosk.on('connection', (socket) => {
+
+  // Saves a reference so we can communicate with this socket elsewhere
+  socketKiosk = socket
+
+});
+
+// make a connection with the user from server side
 ioCustomer.on('connection', (socket) => {
 
   if (hasActiveSession) {
@@ -139,7 +148,7 @@ ioCustomer.on('connection', (socket) => {
   }
   else {
 
-    customerSocket = socket
+    socketCustomer = socket
 
     // Client will tell the server to kick off the timer
     socket.on('time selection', () => {
@@ -186,7 +195,6 @@ appKiosk.get('/QR', (req, res) => {
 
 
 appKiosk.get('/timer', (req, res) => {
-
   // Set the Chrome window size to be in 'timer' mode
   resizeWindowForTimer();
   res.sendFile(PATH_TIMER);
@@ -238,7 +246,9 @@ appCustomer.get('/time-selection/:key', function (req, res) {
 appCustomer.get('/' + randomNumber, (req, res) => {
  
   console.log("In the random number");
-  customerSocket.emit("hello", "world");
+  socketCustomer.emit("hello", "world");
+
+  socketKiosk.emit("start");
 
 
   if(paymentIntentTimer != null){
@@ -568,7 +578,7 @@ function isTokenValid() {
       clearInterval(timerInterval);
       timeRemaining = 0
       isTimerInProgress = false
-      customerSocket = null
+      socketCustomer = null
     } else {
       console.log("Token is GOOD!");
       isTokenValid = true;
@@ -600,11 +610,11 @@ function startTimer() {
 
     timeRemaining--
       console.log(timeRemaining)
-      customerSocket.emit("tick", timeRemaining)
+      socketCustomer.emit("tick", timeRemaining)
 
       if (timeRemaining <= 0) {
         console.log("DONE!")
-        customerSocket.emit("time expired")
+        socketCustomer.emit("time expired")
 
         clearInterval(timerInterval);
       }
@@ -625,7 +635,7 @@ function resetToStartingState(){
   
     clearInterval(timerInterval)
     timeRemaining = 0
-    customerSocket = null
+    socketCustomer = null
     paymentIntent = null
 }
 
