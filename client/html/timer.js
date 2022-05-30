@@ -1,3 +1,8 @@
+const TWENTY_SECS_MILLIS = 20000;
+const QR_PAGE_ROUTE = '/qr';
+
+var socket = io.connect(SOCKET_IO_URL_KIOSK);
+
 // Takes the current time and adds the user's purchased time allotment
 // TODO: Need to make it so the minute value can be passed in
 var countDownDate = Date.today().setTimeToNow().addMinutes(1); 
@@ -20,13 +25,31 @@ var x = setInterval(function() {
   document.getElementById("demo").innerHTML = hours + "h "
   + minutes + "m " + seconds + "s ";
 
-  // If the count down is finished, write some text
+  // TIMER HAS EXPIRED!
   if (distance < 0) {
     clearInterval(x);
+
+    // Show the user that the page has expired
     document.getElementById("demo").innerHTML = "EXPIRED";
-
-
-    window.resizeTo(screen.width-300,screen.height-500)
-
+    routeClientToQRPage();
   }
 }, 1000);
+
+
+// make connection with server from user side
+socket.on('connect', function(){
+  console.log('Connected to Server')
+});
+
+// when disconnected from server
+socket.on('disconnect', function(){
+  console.log('Disconnect from server')
+});
+
+
+// Routes the user back to the QR page after specified time
+function routeClientToQRPage(){
+  setTimeout(function() {
+    window.location.href = QR_PAGE_ROUTE;
+}, TWENTY_SECS_MILLIS);
+}

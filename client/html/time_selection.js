@@ -1,3 +1,17 @@
+
+// Detect if the user has gotten to this page via back button / back navigation
+// If they have, reload the page
+var dirty_bit = document.getElementById('page_is_dirty');
+if (dirty_bit.value == '1') window.location.reload();
+
+
+// Marks this page as 'dirty'. Allows us to detect if the user has gotten to this page via back button / back navigation
+function mark_page_dirty() {
+    dirty_bit.value = '1';
+}
+
+mark_page_dirty();
+
 window.addEventListener( "pageshow", function ( event ) {
   var historyTraversal = event.persisted || 
                          ( typeof window.performance != "undefined" && 

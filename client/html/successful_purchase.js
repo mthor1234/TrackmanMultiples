@@ -32,15 +32,12 @@ function goBackToStart() {
 }
 
 
-// TODO: For some reason, it is complaining that 'io' is not defined. 
 //First Connect to the Server on the Specific URL (HOST:PORT)
 var socket = io.connect(SOCKET_IO_URL);
 
-// //            //
-// // SOCKET IO  //
-// //            //
+// SOCKET IO
 
-// // Make connection with server from user side
+// Make connection with server from user side
 socket.on('connect', function(){
   console.log('Connected to Server')
 

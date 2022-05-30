@@ -170,10 +170,10 @@ ioCustomer.on('connection', (socket) => {
       console.log('user disconnected');
       hasActiveSession = false;
 
-      // TODO: Testing this out
+      // TODO: Testing this out.. This works for navigating back but the problem is, the QR code on the QR page needs to
       // Generate a new QR code everytime the customer moves away from the Time-Selection page
       // This helps prevent a random person from logging in remote and hogging the machine even
-      // generateRandomQR();
+      generateRandomQR();
     });
   }
 });
@@ -195,6 +195,8 @@ appKiosk.get('/QR', (req, res) => {
 
 
 appKiosk.get('/timer', (req, res) => {
+
+  console.log("TIMER ENDPOINT!")
   // Set the Chrome window size to be in 'timer' mode
   resizeWindowForTimer();
   res.sendFile(PATH_TIMER);
@@ -203,7 +205,7 @@ appKiosk.get('/timer', (req, res) => {
 // KIOSK ENDPOINTS END
 
 
-// CUSTOMER ENDPOINTS
+// CUSTOMER ENDPOINTS START
 
 // Time-Selection must match the randomly generated number, otherwise, it will route the scan_qr.html page
 appCustomer.get('/time-selection/:key', function (req, res) {
@@ -246,10 +248,10 @@ appCustomer.get('/time-selection/:key', function (req, res) {
 appCustomer.get('/' + randomNumber, (req, res) => {
  
   console.log("In the random number");
-  socketCustomer.emit("hello", "world");
-
+  
+  // Kicks off the timer via Socket IO.
+  // Timer page should show on the Kiosk
   socketKiosk.emit("start");
-
 
   if(paymentIntentTimer != null){
     // This stops us from cancelling the Payment Intent. 
@@ -260,12 +262,7 @@ appCustomer.get('/' + randomNumber, (req, res) => {
   // Creates the JWT so we can restrict access to the club selection page
   generateJWT();
 
-  // Set the Chrome window size to be in 'timer' mode
-  resizeWindowForTimer();
-
   const success_url = process.env.DOMAIN + `/successful_purchase.html?session_id=` + token;
-
-  // res.redirect(success_url);
   res.redirect(success_url);
 });
 
@@ -652,6 +649,10 @@ function createPaymentIntentTimer(){
 
 // Calls powershell script -> Calls .ahk script -> Resizes the chrome Window for the Timer page
 function resizeWindowForTimer(){
+
+  console.log('resizeWindowForTimer()')
+
+
   var spawn = require("child_process").spawn,child;
   child = spawn("powershell.exe",["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_timer.ps1"]);
 }
@@ -679,8 +680,10 @@ function setUpServer(server){
     })
   );
 
+  // Trying to prevent the user from caching the webpages so I can properly route them
+  // Currently, having trouble if the user navigates backwards to my page
   server.use(function (req, res, next) {
-    res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    res.set('Cache-Control', 'no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0');
     res.header('Expires', '-1');
     res.header('Pragma', 'no-cache');
     next()

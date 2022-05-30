@@ -1,5 +1,3 @@
-var socket = io.connect(SOCKET_IO_URL);
-
 const generateQR = async text => {
     try {
         await QRCode.toFile('./qr_code.png', text, {
@@ -12,6 +10,9 @@ const generateQR = async text => {
         console.log(err);
     }
 }
+
+// SOCKET IO
+var socket = io.connect(SOCKET_IO_URL_KIOSK);
 
 generateQR(SOCKET_IO_URL + "/time-selection");
 
@@ -30,7 +31,7 @@ socket.on('start', function(){
     console.log('Start Session')
 
     // Show the user the timer!
-    window.location.href='/timer.html';
+    window.location.href='/timer';
 });
 
 // When the user's payment is accepted
@@ -40,8 +41,3 @@ socket.on('start timer', function(){
     // Show the user the timer!
     window.location.href='/timer.html';
 });
-
-// client-side
-socket.on("hello", (arg) => {
-    console.log(arg); // world
-  });
