@@ -53,7 +53,7 @@ const PATH_QR = resolve(PATH_BASE + '/qr.html');
 const PATH_TIMER = resolve(PATH_BASE + '/timer.html');
 const PATH_SESSION_EXPIRED = resolve(PATH_BASE + '/session_expired.html');
 const PATH_ERROR = (PATH_BASE + '/error.html');
-const PATH_PLEASE_SCAN = resolve(PATH_BASE + '/scan_qr.html');
+const PATH_PLEASE_SCAN_HTML = resolve(PATH_BASE + '/scan_qr.html');
 const PATH_SUCCESS = PATH_BASE + '/success.html';
 
 // ROUTES //
@@ -170,7 +170,9 @@ ioCustomer.on('connection', (socket) => {
       console.log('user disconnected');
       hasActiveSession = false;
 
-      // TODO: Testing this out.. This works for navigating back but the problem is, the QR code on the QR page needs to
+      socketKiosk.emit("user_disconnected")
+
+      // TODO: Testing this out.. This works for navigating back but the problem is, the QR code on the QR page
       // Generate a new QR code everytime the customer moves away from the Time-Selection page
       // This helps prevent a random person from logging in remote and hogging the machine even
       generateRandomQR();
@@ -210,6 +212,8 @@ appKiosk.get('/timer', (req, res) => {
 // Time-Selection must match the randomly generated number, otherwise, it will route the scan_qr.html page
 appCustomer.get('/time-selection/:key', function (req, res) {
   console.log('Index hit!');
+
+  socketKiosk.emit('new_qr')
 
   // Cancel any existing Payment Intent's.
   // This helps handle the user navigating back to this page
@@ -319,12 +323,12 @@ appCustomer.get('/error', (req, res) => {
 
 // Tells user to scan the QR Code
 appCustomer.get('/scan-QR', function(req, res) {
-  res.sendFile(PATH_PLEASE_SCAN);
+  res.sendFile(PATH_PLEASE_SCAN_HTML);
 });
 
 // Catches all routes to show the QR Code route
 appCustomer.get('/*', function(req, res) {
-  res.sendFile(PATH_PLEASE_SCAN);
+  res.sendFile(PATH_PLEASE_SCAN_HTML);
 });
 
 appCustomer.post('/create-checkout-session', async (req, res) => {
