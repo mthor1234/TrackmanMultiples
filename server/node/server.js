@@ -56,6 +56,7 @@ const PATH_ERROR = (PATH_BASE + '/error.html');
 const PATH_PLEASE_SCAN_HTML = resolve(PATH_BASE + '/scan_qr.html');
 const PATH_SUCCESS = PATH_BASE + '/success.html';
 
+
 // ROUTES //
 const ROUTE_PLEASE_SCAN = PATH_BASE + "/scan-QR";
 
@@ -170,12 +171,12 @@ ioCustomer.on('connection', (socket) => {
       console.log('user disconnected');
       hasActiveSession = false;
 
-      socketKiosk.emit("user_disconnected")
-
-      // TODO: Testing this out.. This works for navigating back but the problem is, the QR code on the QR page
       // Generate a new QR code everytime the customer moves away from the Time-Selection page
       // This helps prevent a random person from logging in remote and hogging the machine even
       generateRandomQR();
+
+      // Talks to the QR page. Allows it to regresh the new QR Code
+      socketKiosk.emit("user_disconnected")
     });
   }
 });
