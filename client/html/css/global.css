@@ -120,18 +120,26 @@ label {
 .sr-select,
 input[type="text"],
 input[type="number"] {
+    border: none;
+    background-color: transparent;
+    resize: none;
+    outline: none;
+    display:none;
+    visibility:hidden;
+}
+/* input[type="number"] {
   border: 1px solid var(--gray-border);
   border-radius: var(--radius);
   padding: 5px 12px;
   height: 44px;
-  width: 100%;
+  width: 0px;
   transition: box-shadow 0.2s ease;
-  background: white;
+  background: transparent;
   -moz-appearance: none;
   -webkit-appearance: none;
   appearance: none;
-  color: #32325d;
-}
+  color: transparent;
+} */
 .sr-input:focus,
 input[type="text"]:focus,
 button:focus,

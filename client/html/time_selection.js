@@ -93,10 +93,13 @@ quantityInput.addEventListener('change', function (e) {
 var addBtn = document.getElementById("add");
 var subtractBtn = document.getElementById("subtract");
 
+var mins = document.getElementById("time_duration");
+
 var updateQuantity = function (evt) {
   if (evt && evt.type === 'keypress' && evt.keyCode !== 13) {
     return;
   }
+
   var delta = evt && evt.target.id === 'add' && 1 || -1;
 
   addBtn.disabled = false;
@@ -104,6 +107,28 @@ var updateQuantity = function (evt) {
 
   // Update number input with new value.
   quantityInput.value = parseInt(quantityInput.value) + delta;
+
+
+  var value = parseInt(quantityInput.value)
+
+  switch(value) {
+    case 1:
+      mins.textContent = "30 Mins"
+      break;
+    case 2:
+      mins.textContent = "60 Mins"
+      break;
+    case 3:
+      mins.textContent = "90 Mins"
+      break;
+    case 4:
+      mins.textContent = "120 Mins"
+      break;
+    default:
+      mins.textContent = "30 Mins"
+  }
+
+
 
   // Disable the button if the customers hits the max or min
   if (quantityInput.value == MIN_MULTIPLES) {

@@ -36,7 +36,7 @@
         <section class="container">
           <div>
             <h1>Rent Time</h1>
-            <h2 class="sr-time">30 Mins</h2>
+            <h2 class="sr-time" id="test">30 Mins</h2>
           </div>
 
           <form action="/create-checkout-session" method="POST">
@@ -45,9 +45,6 @@
               <input type="number" id="quantity-input" min="1" value="1" name="quantity" onkeydown="return false" readonly="true"/>
               <button class="increment-btn" id="add" type="button">+</button>
             </div>
-
-            <p class="sr-legal-text">Multiples of 30 Mins (max 4)</p>
-
             <button type="submit" id="submit">Buy</button>
           </form>
         </section>

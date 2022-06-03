@@ -1,0 +1,26 @@
+body {
+    background-color: rgba(236, 141, 5, 1);
+}
+
+h1 {
+    color: white;
+    font-size: 100px;
+}
+
+.sr-time {
+    color: black;
+    font-size: 50px;
+}
+
+.sr-legal-text {
+    color: black;
+}
+
+button {
+    color: black;
+    background-color: white;
+}
+
+.container {
+    border-color: transparent;
+}
