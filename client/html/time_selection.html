@@ -22,9 +22,6 @@
       setTimeout(function () {
 
         fetch('/expire-token')
-
-         // Redirects to the expired page
-        //  window.location.href='/timeout.html';
       }, 60000)
     </script>
 
@@ -36,7 +33,7 @@
         <section class="container">
           <div>
             <h1>Rent Time</h1>
-            <h2 class="sr-time" id="test">30 Mins</h2>
+            <h2 class="sr-time" id="time_duration">30 Mins</h2>
           </div>
 
           <form action="/create-checkout-session" method="POST">

@@ -29,7 +29,7 @@ var MAX_MULTIPLES = 4;
 var quantityInput = document.getElementById('quantity-input');
 
 //First Connect to the Server on the Specific URL (HOST:PORT)
-var socket = io.connect(SOCKET_IO_URL);
+var socket = io.connect(SOCKET_IO_URL_CUSTOMER);
 
 // User has a max of ONE_MINUTE_MILLIS on this page before it sends to user to the Scan QR page
 setTimeout(function () {

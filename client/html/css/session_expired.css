@@ -1,3 +1,8 @@
-li {list-style-type: none;
+li {
+    list-style-type: none;
     font-size: 16pt;
-    }
+}
+
+button {
+    font-size: 35px;
+}
