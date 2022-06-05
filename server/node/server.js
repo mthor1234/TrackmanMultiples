@@ -1,6 +1,3 @@
-// TODO: Sometimes navigating backwards from the payment intent can cause problems with the
-//    Next scan QR
-
 // LIBS //
 
 // Copy the .env.example in the root into a .env file in this folder
@@ -33,15 +30,15 @@ oauth2Client.setCredentials({
 });
 
 // Customer Server
+const portCustomer = process.env.PORT_CUSTOMER || 8888
 const appCustomer = express();
 const serverCustomer = http.createServer(appCustomer);
-const portCustomer = process.env.PORT_CUSTOMER || 8888
 const ioCustomer = socketIO(serverCustomer)
 
 // Kiosk Server
+const portKiosk = process.env.PORT_KIOSK || 9999
 const appKiosk = express();
 const serverKiosk = http.createServer(appKiosk);
-const portKiosk = process.env.PORT_KIOSK || 9999
 const ioKiosk = socketIO(serverKiosk)
 
 // PATHS //
@@ -128,13 +125,16 @@ setUpServer(appKiosk);
 
 // Launch the servers
 serverCustomer.listen(portCustomer, () => console.log(`Customer Node server listening on port ${portCustomer}!`));
-serverKiosk.listen(portKiosk, () => console.log(`Local Node server listening on port ${portKiosk}!`));
+serverKiosk.listen(portKiosk, () => console.log(`Kiosk Node server listening on port ${portKiosk}!`));
 
 
 // SOCKET IO //
 
 // make a connection with the user from server side
 ioKiosk.on('connection', (socket) => {
+
+  console.log('socketKiosk: Connection!');
+
 
   // Saves a reference so we can communicate with this socket elsewhere
   socketKiosk = socket
@@ -160,7 +160,7 @@ ioCustomer.on('connection', (socket) => {
     socket.on('test', () => {
       console.log('Received a start session!');
     })
-
+    
     socket.on('start timer', () => {
       // TODO: Need to route this to the QR page so it can resize and start the timer
       console.log('Received a start timer!');
@@ -207,7 +207,6 @@ appKiosk.get('/timer', (req, res) => {
 
 // KIOSK ENDPOINTS END
 
-
 // CUSTOMER ENDPOINTS START
 
 // Time-Selection must match the randomly generated number, otherwise, it will route the scan_qr.html page
@@ -237,7 +236,6 @@ appCustomer.get('/time-selection/:key', function (req, res) {
     console.log("Number matches QR!")
     var path = resolve(routeBasedOnMachineInUse(TIME_SELECTION_INDEX));
     res.sendFile(path);
-
   }else{
     console.log("Number does NOT match QR!")
 
@@ -589,6 +587,8 @@ function isTokenValid() {
 
   return isTokenValid;
 }
+
+//TODO: I think I can remove this
 
 // TODO: Getting duplicate timers when navigating back and forth.
 // I can try prevent this with an if/else check but I lose the socket so the
