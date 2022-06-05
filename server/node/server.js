@@ -17,6 +17,7 @@ const { emit } = require('process');
 const nodemailer = require('nodemailer');
 const { google } = require("googleapis");
 const { Domain } = require('domain');
+const { time } = require('console');
 const OAuth2 = google.auth.OAuth2;
 
 const oauth2Client = new OAuth2(
@@ -160,11 +161,7 @@ ioCustomer.on('connection', (socket) => {
     socket.on('test', () => {
       console.log('Received a start session!');
     })
-    
-    socket.on('start timer', () => {
-      // TODO: Need to route this to the QR page so it can resize and start the timer
-      console.log('Received a start timer!');
-    })
+
     // This is how to call the disconnect from SocketIO. 
     // When the user navigates away from the webpage, this is called
     socket.on('disconnect', function () {
@@ -199,10 +196,21 @@ appKiosk.get('/QR', (req, res) => {
 
 appKiosk.get('/timer', (req, res) => {
 
+  console.log("TIME TO USE: " + timeRemaining)
+
   console.log("TIMER ENDPOINT!")
   // Set the Chrome window size to be in 'timer' mode
   resizeWindowForTimer();
   res.sendFile(PATH_TIMER);
+});
+
+
+// Fetch the Checkout Session to display the JSON result on the success page
+appKiosk.get('/get-duration', async (req, res) => {
+  console.log("get-duration " + timeRemaining)
+
+  res.status(200)
+  res.send({duration: timeRemaining});
 });
 
 // KIOSK ENDPOINTS END
@@ -254,7 +262,7 @@ appCustomer.get('/' + randomNumber, (req, res) => {
   
   // Kicks off the timer via Socket IO.
   // Timer page should show on the Kiosk
-  socketKiosk.emit("start");
+  socketKiosk.emit("start_timer");
 
   if(paymentIntentTimer != null){
     // This stops us from cancelling the Payment Intent. 

@@ -40,7 +40,4 @@ var socket = io.connect(SOCKET_IO_URL);
 // Make connection with server from user side
 socket.on('connect', function(){
   console.log('Connected to Server')
-
-  // Start the timer
-  socket.emit('start timer')
 });

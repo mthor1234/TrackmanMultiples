@@ -1,8 +1,6 @@
 // SOCKET IO
 var socket = io.connect(SOCKET_IO_URL_KIOSK);
 
-// generateQR(SOCKET_IO_URL + "/time-selection");
-
 // make connection with server from user side
 socket.on('connect', function(){
     console.log('Connected to Server')
@@ -23,17 +21,9 @@ socket.on('new_qr', function(){
 });
 
 // When the user's payment is accepted
-socket.on('start', function(){
-    console.log('Start Session')
-
-    // Show the user the timer!
-    window.location.href='/timer';
-});
-
-// When the user's payment is accepted
-socket.on('start timer', function(){
+socket.on('start_timer', function(){
     console.log('Start timer')
 
     // Show the user the timer!
-    window.location.href='/timer.html';
+    window.location.href='/timer';
 });
