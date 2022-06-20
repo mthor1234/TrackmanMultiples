@@ -1,23 +1,49 @@
-// LIBS //
+/**
+ * LIBS
+ * ------------------
+ * [dotenv] - Usage of enviornment variables via a '.env' file
+ * [bodyParser] - Printing out / parsing http responses
+ * [express] - Framework for setting up the server
+ * [jwt] - JSON Web Token -> User authorization
+ * [http] - http responses I think?
+ * [QRCode] - Generates a QR code for the 'time-selection' page
+ * [resolve] - Can serve up our .html files so the user can see
+ */
 
 // Copy the .env.example in the root into a .env file in this folder
 require('dotenv').config({ path: './.env' });
-
+var bodyParser = require('body-parser')
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const http = require('http');
 const QRCode = require('qrcode');
 const { resolve } = require('path');
+/**
+ * END: LIBS
+ * ------------------
+ */
 
-// SocketIO
+/**
+ * SOCKET IO
+ * ------------------
+ * [socketCustomer] - Allows access to customer-facing 'SocketIO'
+ * [socketKiosk] - Allows access to kiosk-facing 'SocketIO'
+ */
 const socketIO = require('socket.io');
 const { emit } = require('process');
+var socketCustomer
+var socketKiosk
+/**
+ * END: SOCKET IO
+ * ------------------
+ */
 
 // Nodemailer
 const nodemailer = require('nodemailer');
 const { google } = require("googleapis");
 const { Domain } = require('domain');
 const { time } = require('console');
+const { restart } = require('nodemon');
 const OAuth2 = google.auth.OAuth2;
 
 const oauth2Client = new OAuth2(
@@ -30,19 +56,37 @@ oauth2Client.setCredentials({
   refresh_token: process.env.OAUTH_REFRESH_TOKEN
 });
 
-// Customer Server
+/**
+ * CUSTOMER SERVER
+ * ------------------
+ */
 const portCustomer = process.env.PORT_CUSTOMER || 8888
 const appCustomer = express();
 const serverCustomer = http.createServer(appCustomer);
 const ioCustomer = socketIO(serverCustomer)
+/**
+ * END: CUSTOMER SERVER
+ * ------------------
+ */
 
-// Kiosk Server
+
+/**
+ * KIOSK SERVER
+ * ------------------
+ */
 const portKiosk = process.env.PORT_KIOSK || 9999
 const appKiosk = express();
 const serverKiosk = http.createServer(appKiosk);
 const ioKiosk = socketIO(serverKiosk)
+/**
+ * END: KIOSK SERVER
+ * ------------------
+ */
 
-// PATHS //
+/**
+ * PATHS
+ * ------------------
+ */
 const PATH_BASE = process.env.STATIC_DIR;
 const PATH_ALREADY_IN_USE = resolve(PATH_BASE + '/already_in_use.html');
 const PATH_INDEX = resolve(PATH_BASE + '/index.html');
@@ -50,19 +94,54 @@ const TIME_SELECTION_INDEX = resolve(PATH_BASE + '/time_selection.html');
 const PATH_QR = resolve(PATH_BASE + '/qr.html');
 const PATH_TIMER = resolve(PATH_BASE + '/timer.html');
 const PATH_SESSION_EXPIRED = resolve(PATH_BASE + '/session_expired.html');
-const PATH_ERROR = (PATH_BASE + '/error.html');
+const PATH_ERROR = resolve(PATH_BASE + '/error.html');
 const PATH_PLEASE_SCAN_HTML = resolve(PATH_BASE + '/scan_qr.html');
 const PATH_SUCCESS = PATH_BASE + '/success.html';
+/**
+ * END: PATHS
+ * ------------------
+ */
 
 
-// ROUTES //
-const ROUTE_PLEASE_SCAN = PATH_BASE + "/scan-QR";
+/**
+ * ROUTES
+ * ------------------
+ */
+  const ROUTE_PLEASE_SCAN = "/scan-QR";
+  const ROUTE_ERROR = "/error";
+/**
+ * END: ROUTES
+ * ------------------
+ */
 
-// Time duration
-const TIME_DENOMINATION_IN_SECS = 1800 
-const THREE_MINS_MILLIS = 180000
+/**
+ * TIME DURATIONS
+ * ------------------
+ */
+const TIME_DENOMINATION_IN_SECS = 1800
+const THREE_MINS_MILLIS = 3 * 60000
+/**
+ * END: TIME DURATIONS
+ * ------------------
+ */
 
-// Sets up the Stripe constant used throughout
+/**
+ * TIMER --> User's Kiosk Session Afer Payment
+ * ------------------
+ */
+ var timerInterval
+ var isTimerInProgress = false
+ /**
+ * END: TIMER
+ * ------------------
+ */
+
+/**
+ * STRIPE RELATED
+ * ------------------
+ * [stripe] - Sets up the Stripe constant used throughout
+ * [paymentIntent] - Stores the Stripe Payment Intent so it can be cancelled if the user navigates backwards
+ */
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2020-08-27',
   appInfo: { // For sample support and debugging, not required for production:
@@ -73,14 +152,36 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
   maxNetworkRetries: 3
 });
 
-// Stores the Stripe Payment Intent so it can be cancelled if the user navigates backwards
 var paymentIntent = null
 var timeRemaining = null
 var paymentIntentTimer = null
-var isTimerInProgress = false
-var socketCustomer
-var socketKiosk
-var timerInterval
+ /** 
+  * END: STRIPE RELATED
+  * -----------------------
+  */
+
+
+/**
+ * USER STATE MACHINE
+ * ------------------
+ * Different 'States' the user can be in
+ * Makes enpoints unreachable if the user isn't in the correct state
+ */
+ const UserState = {
+  QR: 'QR',
+  TIME_SELECTION: 'TIME_SELECTION',
+  PAYMENT: 'PAYMENT',
+  ACTIVE: 'ACTIVE',
+}
+
+ /** Holds the user state. */
+var currentState = UserState.QR
+
+ /** 
+  * END: USER STATE MACHINE 
+  * -----------------------
+  */
+
 
 // Append this on the end of success route to avoid users from 'hacking' into a free session
 var randomNumber = generateRandomNumber();
@@ -97,20 +198,20 @@ const generateQR = async text => {
 
   console.log("CREATING A NEW QR");
 
-    try {
-        await QRCode.toFile('../../client/html/res/qr_code.png', text, {
-          color: {
-            dark: '#FFF',  // White
-            light: '#0000' // Transparent background
-          }
-        });
-    } catch (err) {
-        console.log(err);
-    }
+  try {
+    await QRCode.toFile('../../client/html/res/qr_code.png', text, {
+      color: {
+        dark: '#FFF',  // White
+        light: '#0000' // Transparent background
+      }
+    });
+  } catch (err) {
+    console.log(err);
+  }
 }
 
 // Call to create the QR code with the randomly generated number
-generateQR(process.env.DOMAIN +  "/time-selection/" + randomNumberQR);
+generateQR(process.env.DOMAIN + "/time-selection/" + randomNumberQR);
 
 console.log("Random Number QR: " + randomNumberQR);
 
@@ -136,7 +237,6 @@ ioKiosk.on('connection', (socket) => {
 
   console.log('socketKiosk: Connection!');
 
-
   // Saves a reference so we can communicate with this socket elsewhere
   socketKiosk = socket
 
@@ -144,6 +244,9 @@ ioKiosk.on('connection', (socket) => {
 
 // make a connection with the user from server side
 ioCustomer.on('connection', (socket) => {
+
+  console.log('ioCustomer: Connection!');
+
 
   if (hasActiveSession) {
     console.log('Theres an active socket connection. Reject this connection');
@@ -187,18 +290,20 @@ ioCustomer.on('connection', (socket) => {
 
 appKiosk.get('/QR', (req, res) => {
 
+  console.log("/QR")
+
+
   // Set the Chrome window size to be in 'timer' mode
   resizeWindowForQR();
-
   res.sendFile(PATH_QR);
 });
 
 
 appKiosk.get('/timer', (req, res) => {
 
+  console.log("/timer")
   console.log("TIME TO USE: " + timeRemaining)
 
-  console.log("TIMER ENDPOINT!")
   // Set the Chrome window size to be in 'timer' mode
   resizeWindowForTimer();
   res.sendFile(PATH_TIMER);
@@ -210,183 +315,176 @@ appKiosk.get('/get-duration', async (req, res) => {
   console.log("get-duration " + timeRemaining)
 
   res.status(200)
-  res.send({duration: timeRemaining});
+  res.send({ duration: timeRemaining });
 });
 
 // KIOSK ENDPOINTS END
 
+
+
 // CUSTOMER ENDPOINTS START
 
-// Time-Selection must match the randomly generated number, otherwise, it will route the scan_qr.html page
-appCustomer.get('/time-selection/:key', function (req, res) {
-  console.log('Index hit!');
-
-  socketKiosk.emit('new_qr')
-
-  // Cancel any existing Payment Intent's.
-  // This helps handle the user navigating back to this page
-  if(paymentIntent != null) {
-
-    var status = paymentIntent.status
-    var succeeded = "succeeded"
-    var expired = "expired"
-    console.log("Payment Intent: " + status)
-
-    console.log(paymentIntent)
-
-    if(status != succeeded && status != expired){
-      paymentIntentTimer = null
-      cancelPaymentIntent()
-    }
-  }
-
-  if(req.params.key === randomNumberQR){
-    console.log("Number matches QR!")
-    var path = resolve(routeBasedOnMachineInUse(TIME_SELECTION_INDEX));
-    res.sendFile(path);
-  }else{
-    console.log("Number does NOT match QR!")
-
-    res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-    res.header('Expires', '-1');
-    res.header('Pragma', 'no-cache');
-
-    // Route the user to scan the QR Code
-    res.redirect(303, ROUTE_PLEASE_SCAN);
-  }
-});
-
-appCustomer.get('/' + randomNumber, (req, res) => {
- 
-  console.log("In the random number");
-  
-  // Kicks off the timer via Socket IO.
-  // Timer page should show on the Kiosk
-  socketKiosk.emit("start_timer");
-
-  if(paymentIntentTimer != null){
-    // This stops us from cancelling the Payment Intent. 
-    // We no longer need to cancel the PI since the user has successfully paid 
-    clearTimeout(paymentIntentTimer)
-  }
-
-  // Creates the JWT so we can restrict access to the club selection page
-  generateJWT();
-
-  const success_url = process.env.DOMAIN + `/successful_purchase.html?session_id=` + token;
-  res.redirect(success_url);
-});
-
 appCustomer.get('/expire-token', async (req, res) => {
-  console.log("EXPIRE THE TOKEN!")
-  token = null
-  res.sendStatus(200)
+
+  console.log("/expire-token")
+
+  // TODO: I think UserState.TIME_SELECTION is the right state
+  if (checkUserState(UserState.TIME_SELECTION) || checkUserState(UserState.ACTIVE)) {
+    console.log("EXPIRE THE TOKEN!")
+    token = null
+    res.sendStatus(200)
+  }
 });
- 
+
+
 // Fetch the Checkout Session to display the JSON result on the success page
 appCustomer.get('/check-session', async (req, res) => {
 
-  console.log("check-session");
+  console.log("/check-session")
 
-  if (isTokenValid()) {
-    console.log("Token is fine")
+  if(checkUserState(UserState.ACTIVE)) {
 
-    res.sendStatus(200)
+    console.log("check-session");
 
+    if (isTokenValid()) {
+      console.log("Token is fine")
+
+      res.sendStatus(200)
+
+    } else {
+
+      console.log("Want to send them to the beginning or session expired")
+      res.status(403);
+      res.send('None shall pass');
+    }
+    console.log("Outside");
   } else {
-
-    console.log("Want to send them to the beginning or session expired")
-    res.status(403);
-    res.send('None shall pass');
+    sendUserToPleaseScan(res)
   }
-  console.log("Outside");
 });
 
-// Fetch the Checkout Session to display the JSON result on the success page
-appCustomer.get('/check-qr', async (req, res) => {
-  console.log("check-qr " + randomNumberQR)
-
-  res.status(200)
-  res.send({qr: randomNumberQR});
-});
 
 // Fetch the Checkout Session to display the JSON result on the success page
 appCustomer.get('/checkout-session', async (req, res) => {
-  hasActiveSession = true;
-  res.send(hasActiveSession);
+
+  console.log("/checkout-session")
+
+  // TODO: What state do we check... Testing with these
+  if (checkUserState(UserState.TIME_SELECTION) || checkUserState(UserState.PAYMENT)) {
+
+    hasActiveSession = true;
+    res.send(hasActiveSession);
+  } else {
+    sendUserToPleaseScan(res)
+  }
 });
 
+// TODO: The user can enter this url directly in. Do we want that? It should be hidden if possible
 // Sesion Expired Endpoint
 appCustomer.get('/session-expired', (req, res) => {
-  res.sendFile(PATH_SESSION_EXPIRED);
 
-  resetToStartingState()
+  console.log("/session-expired")
+
+
+  if (checkUserState(UserState.ACTIVE)) {
+    res.sendFile(PATH_SESSION_EXPIRED);
+    resetToStartingState()
+
+  } else {
+    sendUserToPleaseScan(res)
+  }
 });
 
+// TODO: I don't think I need this since it was tied to emailing
+// TODO: The user can enter this url directly in. Do we want that? It should be hidden if possible
 // Error sending an email
-appCustomer.get('/error', (req, res) => {
-  res.sendFile(PATH_ERROR);
-});
+// appCustomer.get('/error', (req, res) => {
+//   res.sendFile(PATH_ERROR);
+// });
 
 // Tells user to scan the QR Code
 appCustomer.get('/scan-QR', function(req, res) {
-  res.sendFile(PATH_PLEASE_SCAN_HTML);
+  console.log("/scan-QR")
+  res.sendFile(PATH_PLEASE_SCAN_HTML)
 });
 
-// Catches all routes to show the QR Code route
-appCustomer.get('/*', function(req, res) {
-  res.sendFile(PATH_PLEASE_SCAN_HTML);
+// Tells user to scan the QR Code
+appCustomer.get('/error', function(req, res) {
+  console.log("/error")
+  res.sendFile(PATH_ERROR)
 });
 
+
+// Takes the user to the checkout page
 appCustomer.post('/create-checkout-session', async (req, res) => {
 
-  if (hasActiveSession) {
-    res.sendFile(PATH_ALREADY_IN_USE);
+  console.log("/create-checkout-session")
+
+  try {
+
+  if (checkUserState(UserState.TIME_SELECTION)) {
+    if (hasActiveSession) {
+
+      // Update the user's state
+      updateUserState(UserState.QR)
+      // TODO: Consider redirecting instead of Already in use?
+      res.sendFile(PATH_ALREADY_IN_USE);
+    } else {
+
+      // Update the user's state
+      updateUserState(UserState.PAYMENT)
+
+      const domainURL = process.env.DOMAIN;
+
+      const { quantity } = req.body;
+
+      timeRemaining = quantity * TIME_DENOMINATION_IN_SECS
+
+      console.log("Time Chosen: " + timeRemaining)
+
+      // The list of supported payment method types. We fetch this from the
+      // environment variables in this sample. In practice, users often hard code a
+      // list of strings for the payment method types they plan to support.
+      const pmTypes = (process.env.PAYMENT_METHOD_TYPES || 'card').split(',').map((m) => m.trim());
+
+      // Create new Checkout Session for the order
+      // Other optional params include:
+      // [billing_address_collection] - to display billing address details on the page
+      // [customer] - if you have an existing Stripe Customer ID
+      // [customer_email] - lets you prefill the email input in the Checkout page
+      // TODO: NEED TO ADD THIS! 
+      // [after_expiration] - Configure actions after a Checkout Session has expired.
+      // [expires_at] - The Epoch time in seconds at which the Checkout Session will expire. It can be anywhere from 1 to 24 hours after Checkout Session creation. By default, this value is 24 hours from creation.
+      // For full details see https://stripe.com/docs/api/checkout/sessions/create
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: pmTypes,
+        mode: 'payment',
+        expires_at: generateTimeStampCurrentPlusOneHour(),
+        line_items: [
+          {
+            price: process.env.PRICE,
+            quantity: quantity
+          },
+        ],
+        success_url: `${domainURL}/` + randomNumber,
+        cancel_url: `${domainURL}/canceled.html`,
+      });
+
+      console.log("PI:" + session.payment_intent)
+      paymentIntent = session.payment_intent
+
+      createPaymentIntentTimer()
+
+      return res.redirect(303, session.url);
+    }
   } else {
-
-    const domainURL = process.env.DOMAIN;
-
-    const { quantity } = req.body;
-
-    timeRemaining = quantity * TIME_DENOMINATION_IN_SECS
-
-    console.log("Time Chosen: " + timeRemaining)
-
-    // The list of supported payment method types. We fetch this from the
-    // environment variables in this sample. In practice, users often hard code a
-    // list of strings for the payment method types they plan to support.
-    const pmTypes = (process.env.PAYMENT_METHOD_TYPES || 'card').split(',').map((m) => m.trim());
-
-    // Create new Checkout Session for the order
-    // Other optional params include:
-    // [billing_address_collection] - to display billing address details on the page
-    // [customer] - if you have an existing Stripe Customer ID
-    // [customer_email] - lets you prefill the email input in the Checkout page
-    // TODO: NEED TO ADD THIS! 
-    // [after_expiration] - Configure actions after a Checkout Session has expired.
-    // [expires_at] - The Epoch time in seconds at which the Checkout Session will expire. It can be anywhere from 1 to 24 hours after Checkout Session creation. By default, this value is 24 hours from creation.
-    // For full details see https://stripe.com/docs/api/checkout/sessions/create
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: pmTypes,
-      mode: 'payment',
-      expires_at: generateTimeStampCurrentPlusOneHour(),
-      line_items: [
-        {
-          price: process.env.PRICE,
-          quantity: quantity
-        },
-      ],
-      success_url: `${domainURL}/` + randomNumber,
-      cancel_url: `${domainURL}/canceled.html`,
-    });
-
-    console.log("PI:" + session.payment_intent)
-    paymentIntent = session.payment_intent
-
-    createPaymentIntentTimer()
-
-    return res.redirect(303, session.url);
+    sendUserToPleaseScan(res)
   }
+} catch (error) {
+
+console.log("There was error! " + error)
+sendUserToErrorPage(res)
+}
 });
 
 // Webhook handler for asynchronous events.
@@ -426,13 +524,120 @@ appCustomer.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
+appCustomer.get('/time-selection/:key', function (req, res) {
+
+  console.log('/time-selection');
+
+  if (checkUserState(UserState.QR) || checkUserState(UserState.TIME_SELECTION)) {
+
+
+    // TODO: Commenting out for now
+    // socketKiosk.emit('new_qr')
+
+    // Cancel any existing Payment Intent's.
+    // This helps handle the user navigating back to this page
+    if (paymentIntent != null) {
+
+      var status = paymentIntent.status
+      var succeeded = "succeeded"
+      var expired = "expired"
+      console.log("Payment Intent: " + status)
+
+      console.log(paymentIntent)
+
+      if (status != succeeded && status != expired) {
+        paymentIntentTimer = null
+        cancelPaymentIntent()
+      }
+    }
+
+    // We receive an extra request from globals.js for some reason. This helps us handle this request
+    var isGlobalsJSRequest = req.params.key === 'globals.js'
+
+    if(isGlobalsJSRequest){
+      console.log("isGlobalsJSRequest!")
+
+      updateUserState(UserState.TIME_SELECTION)
+
+      var path = resolve(routeBasedOnMachineInUse(TIME_SELECTION_INDEX));
+      res.sendFile(path);
+
+    }
+
+    else if (req.params.key === randomNumberQR) {
+      console.log("Number matches QR!")
+
+      updateUserState(UserState.TIME_SELECTION)
+
+      var path = resolve(routeBasedOnMachineInUse(TIME_SELECTION_INDEX));
+      res.sendFile(path);
+
+    } else {
+      console.log("Number does NOT match QR!")
+
+      res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+      res.header('Expires', '-1');
+      res.header('Pragma', 'no-cache');
+
+      // Route the user to scan the QR Code
+      sendUserToPleaseScan(res)
+    }
+
+  } else {
+    console.log("NOT IN THE QR STATE")
+    sendUserToPleaseScan(res)
+  }
+});
+
+appCustomer.get('/' + randomNumber, (req, res) => {
+
+  console.log("/randomNumber -> CurrentState: " + currentState)
+
+
+  if (checkUserState(UserState.PAYMENT)) {
+
+    updateUserState(UserState.ACTIVE)
+
+    console.log("In the random number");
+
+    // Kicks off the timer via Socket IO.
+    // Timer page should show on the Kiosk
+    socketKiosk.emit("start_timer");
+
+    if (paymentIntentTimer != null) {
+      // This stops us from cancelling the Payment Intent. 
+      // We no longer need to cancel the PI since the user has successfully paid 
+      clearTimeout(paymentIntentTimer)
+    }
+
+    // Creates the JWT so we can restrict access to the timer page
+    generateJWT();
+
+    const success_url = process.env.DOMAIN + `/successful_purchase.html?session_id=` + token;
+    res.redirect(success_url);
+  } else {
+    sendUserToPleaseScan(res)
+  }
+});
+
+// Catches all routes to show the Scan QR Code route
+appCustomer.get('/*', function (req, res) {
+  console.log("/*")
+  // res.sendFile(resolve(PATH_SUCCESS))
+  sendUserToPleaseScan(res)
+
+
+  // res.redirect(ROUTE_PLEASE_SCAN)
+});
+
+
 // TODO: Need to handle if email doesn't send... Right now, it just loads forever
 
 // Sends the Trackman Session to the User's email
-appCustomer.post('/send', (req, res) => {
-  console.log(req.body.email_address)
-  sendEmail(req.body.email_address, res)
-});
+// appCustomer.post('/send', (req, res) => {
+//   console.log(req.body.email_address)
+//   sendEmail(req.body.email_address, res)
+// });
 
 // CUSTOMER ENDPOINTS END
 
@@ -453,9 +658,9 @@ function checkEnv() {
 
 // Checks if the machine has an active session. 
 // If so, routes the user to the already in use page. Otherwise, continues onwards with the supplied path
-function routeBasedOnMachineInUse(happyPath){
+function routeBasedOnMachineInUse(happyPath) {
 
-  if(hasActiveSession){
+  if (hasActiveSession) {
     console.log('Sending the user to already-in-use.html');
     return PATH_ALREADY_IN_USE
   }
@@ -463,13 +668,13 @@ function routeBasedOnMachineInUse(happyPath){
 }
 
 // Generates a random number based on the current timestamp
-function generateRandomNumber(){
+function generateRandomNumber() {
   console.log("generateRandomNumber()")
   return (Date.now() + Math.random()).toString(36);
 }
 
 // Generates a QR code based on the random number
-function generateRandomQR(){
+function generateRandomQR() {
   randomNumberQR = generateRandomNumber();
   console.log("Random QR Number: " + randomNumberQR);
 
@@ -511,14 +716,14 @@ async function sendEmail(customersEmail, res) {
       secure: true,
       auth: {
         type: 'OAuth2',
-          user: email,
-          clientId: clientID,
-          clientSecret: clientSecret,
-          refreshToken: refreshToken,
-          accessToken: accessToken,
-          expires: 1647579898000
+        user: email,
+        clientId: clientID,
+        clientSecret: clientSecret,
+        refreshToken: refreshToken,
+        accessToken: accessToken,
+        expires: 1647579898000
       }
-  });
+    });
 
     var mailOptions = {
       from: email,
@@ -527,7 +732,7 @@ async function sendEmail(customersEmail, res) {
       text: 'That was easy!'
     };
 
-      const result = await transporter.sendMail(mailOptions, function (error, info) {
+    const result = await transporter.sendMail(mailOptions, function (error, info) {
 
       // Machine is no longer in use. Lower the flag
       hasActiveSession = false;
@@ -549,9 +754,9 @@ async function sendEmail(customersEmail, res) {
       }
     });
     // Set up the email options and delivering it
-  return result;
+    return result;
 
-  }catch(error) {
+  } catch (error) {
 
     console.log(error);
 
@@ -565,7 +770,8 @@ async function sendEmail(customersEmail, res) {
 function generateJWT(username) {
 
   const TOKEN_EXPIRATION_SECS = 60
-  token = jwt.sign({ username,
+  token = jwt.sign({
+    username,
     exp: Math.floor(Date.now() / 1000) + (TOKEN_EXPIRATION_SECS),
     iat: Math.floor(Date.now())
   }, process.env.TOKEN_SECRET);
@@ -608,17 +814,17 @@ function startTimer() {
   console.log("startTimer")
 
   // Timer is not active, so we start it
-  if(isTimerInProgress === false){
+  if (isTimerInProgress === false) {
     console.log("Timer is not in progress... Start it up!")
 
     isTimerInProgress = true
 
-  timerInterval = setInterval(function () {
+    timerInterval = setInterval(function () {
 
-    console.log("Time remaining: " + timeRemaining)
+      console.log("Time remaining: " + timeRemaining)
 
 
-    timeRemaining--
+      timeRemaining--
       console.log(timeRemaining)
       socketCustomer.emit("tick", timeRemaining)
 
@@ -628,7 +834,7 @@ function startTimer() {
 
         clearInterval(timerInterval);
       }
-  }, 1000);
+    }, 1000);
   } else {
     console.log("Timer is already in progress. Ignoring")
 
@@ -636,49 +842,49 @@ function startTimer() {
 }
 
 // Sets all of the key vars to their beginning state
-function resetToStartingState(){
-    // Free up the timer
-    isTimerInProgress = false
+function resetToStartingState() {
+  // Free up the timer
+  isTimerInProgress = false
 
-    // Lower the flag
-    hasActiveSession = false;
-  
-    clearInterval(timerInterval)
-    timeRemaining = 0
-    socketCustomer = null
-    paymentIntent = null
+  // Lower the flag
+  hasActiveSession = false;
+
+  clearInterval(timerInterval)
+  timeRemaining = 0
+  socketCustomer = null
+  paymentIntent = null
+  updateUserState(UserState.QR)
 }
 
-function createPaymentIntentTimer(){
-    paymentIntentTimer = setTimeout(async function(){
+function createPaymentIntentTimer() {
+  paymentIntentTimer = setTimeout(async function () {
 
-      console.log("Trying to expire the session!")
+    console.log("Trying to expire the session!")
 
-      cancelPaymentIntent()
-      hasActiveSession = false
+    cancelPaymentIntent()
+    hasActiveSession = false
 
-    }, THREE_MINS_MILLIS)
+  }, THREE_MINS_MILLIS)
 }
 
 // Calls powershell script -> Calls .ahk script -> Resizes the chrome Window for the Timer page
-function resizeWindowForTimer(){
+function resizeWindowForTimer() {
 
   console.log('resizeWindowForTimer()')
 
 
-  var spawn = require("child_process").spawn,child;
-  child = spawn("powershell.exe",["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_timer.ps1"]);
+  var spawn = require("child_process").spawn, child;
+  child = spawn("powershell.exe", ["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_timer.ps1"]);
 }
 
 // Calls powershell script -> Calls .ahk script -> Resizes the chrome Window for the QR page
-function resizeWindowForQR(){
-  var spawn = require("child_process").spawn,child;
-  child = spawn("powershell.exe",["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_qr.ps1"]);
+function resizeWindowForQR() {
+  var spawn = require("child_process").spawn, child;
+  child = spawn("powershell.exe", ["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_qr.ps1"]);
 }
 
-
 // Sets up cache-control and other goodies to handle issues with navigation
-function setUpServer(server){
+function setUpServer(server) {
   server.use(express.static(PATH_BASE));
   server.use(express.urlencoded());
   server.use(
@@ -701,7 +907,32 @@ function setUpServer(server){
     res.header('Pragma', 'no-cache');
     next()
   });
+}
 
+function sendUserToPleaseScan(res) {
+  updateUserState(UserState.QR)
+  return res.redirect(303, ROUTE_PLEASE_SCAN)
+}
+
+// General error handling page.
+// 1. Show user the error page
+// 2. Wait for a little
+// 3. Send user to Please Scan Page
+function sendUserToErrorPage(res) {
+  updateUserState(UserState.QR)
+  return res.redirect(303, ROUTE_ERROR)
 }
 
 
+// Checks the userstate
+function checkUserState(state){
+  console.log("CHECKING USER STATE:")
+  console.log("CURRENT STATE: " + currentState + ": DESIRED STATE: " + state)
+  return (currentState === state)
+}
+
+// Updates the userstate
+function updateUserState(state){
+  console.log("UPDATING USER STATE FROM: " + currentState + " --> " + state)
+    currentState = state
+}
