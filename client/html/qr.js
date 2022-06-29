@@ -1,3 +1,6 @@
+const SOCKET_IO_URL_KIOSK = "http://localhost:9999"
+
+
 // SOCKET IO
 var socket = io.connect(SOCKET_IO_URL_KIOSK);
 

@@ -15,11 +15,6 @@ window.addEventListener('popstate', function () {
 //    Don't want someone on that page blocking everyone forever
 const CHECK_SESSION_INTERVAL = 10000
 
-// TODO: Back and forth ignores the expired token.... refresh works though
-//  * Eventually, the token should match the time expiration... But still, we need to be able to respect the token
-
-// TODO: Time was broken after completing a session and then going back... Says Timer is already in progress
-
 // Constantly asking the Server if the session is good to continue
 setInterval(function () {
   console.log('Interval!')
@@ -223,7 +218,6 @@ function checkSession(){
     } else if(response.status == 403){
       console.log("403 FOUND!");
 
-      // TODO: Testing this
       onTimesUp()
 
       // Send the user to the session expired page. 

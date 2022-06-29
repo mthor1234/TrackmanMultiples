@@ -1,4 +1,4 @@
-const THREE_MINUTES = 3 * 60000
+const SEVEN_SECS_MILLIS = 7000
 
 // Alerts the user of unsaved changes
 $(document).ready(function () {
@@ -21,24 +21,13 @@ $(document).ready(function () {
 
   startTimeoutHandler()
 
-
 function startTimeoutHandler() {
-  timeout = setTimeout(goBackToStart, THREE_MINUTES);
+  timeout = setTimeout(goBackToStart, SEVEN_SECS_MILLIS);
 }
 
-// TODO: Only go back to the start after the time has expired
+// Redirect the user to the start once the time has expired
 function goBackToStart() {
   console.log("Go back to start!");
+  // TODO: NOT SURE IF THIS IS RIGHT
   window.location.href='/index.html';
 }
-
-
-//First Connect to the Server on the Specific URL (HOST:PORT)
-var socket = io.connect(SOCKET_IO_URL);
-
-// SOCKET IO
-
-// Make connection with server from user side
-socket.on('connect', function(){
-  console.log('Connected to Server')
-});

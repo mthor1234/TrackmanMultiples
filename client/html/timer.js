@@ -1,7 +1,9 @@
 const TWENTY_SECS_MILLIS = 20000;
 const QR_PAGE_ROUTE = '/qr';
+const SOCKET_IO_URL_KIOSK = "http://localhost:9999"
 
-var socket = io.connect(SOCKET_IO_URL_KIOSK);
+
+// var socket = io.connect(SOCKET_IO_URL_KIOSK);
 
 // Holds the time duration the user purchased
 var timeDurationMins;
@@ -16,12 +18,8 @@ fetch('/get-duration')
   timeDurationMins = (data.duration)/60
 
 
-
-
 // Takes the current time and adds the user's purchased time allotment
-// TODO: Need to make it so the minute value can be passed in
 var countDownDate = Date.today().setTimeToNow().addMinutes(timeDurationMins); 
-
 
 // Update the count down every 1 second
 var x = setInterval(function() {
@@ -50,8 +48,6 @@ var x = setInterval(function() {
     routeClientToQRPage();
   }
 }, 1000);
-
-
 
 
 }).catch((error) => {
