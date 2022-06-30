@@ -1,9 +1,10 @@
 const TWENTY_SECS_MILLIS = 20000;
 const QR_PAGE_ROUTE = '/qr';
 const SOCKET_IO_URL_KIOSK = "http://localhost:9999"
+const SOCKET_IO_URL_CLIENT = "http://localhost:8888"
 
-
-// var socket = io.connect(SOCKET_IO_URL_KIOSK);
+var socket = io.connect(SOCKET_IO_URL_KIOSK);
+var socketClient = io.connect(SOCKET_IO_URL_KIOSK);
 
 // Holds the time duration the user purchased
 var timeDurationMins;
@@ -16,7 +17,6 @@ fetch('/get-duration')
   console.log('Fetched Duration: ' + data.duration)
 
   timeDurationMins = (data.duration)/60
-
 
 // Takes the current time and adds the user's purchased time allotment
 var countDownDate = Date.today().setTimeToNow().addMinutes(timeDurationMins); 
@@ -70,6 +70,10 @@ socket.on('disconnect', function(){
 // Routes the user back to the QR page after specified time
 function routeClientToQRPage(){
   setTimeout(function() {
+
+    // Routes the client to the scan-qr page
+    socketClient.emit("time_expired")
+
     window.location.href = QR_PAGE_ROUTE;
 }, TWENTY_SECS_MILLIS);
 }

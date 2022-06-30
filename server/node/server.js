@@ -504,6 +504,13 @@ ioKiosk.on('connection', (socket) => {
   // Saves a reference so we can communicate with this socket elsewhere
   socketKiosk = socket
 
+
+  // Client will tell the server to kick off the timer
+  socket.on('time_expired', () => {
+    console.log("SERVER.JS received a time_expired");
+    socketCustomer.emit("time_expired")
+  })
+
 });
 /**
  * END: SOCKET IO: KIOSK
@@ -519,7 +526,6 @@ ioCustomer.on('connection', (socket) => {
 
   console.log('ioCustomer: Connection!');
 
-
   if (hasActiveSession) {
     console.log('Theres an active socket connection. Reject this connection');
   }
@@ -531,10 +537,6 @@ ioCustomer.on('connection', (socket) => {
     socket.on('time selection', () => {
       console.log('New user connected... ID: ' + socket.id);
       hasActiveSession = true;
-    })
-
-    socket.on('test', () => {
-      console.log('Received a start session!');
     })
 
     // This is how to call the disconnect from SocketIO. 
@@ -645,7 +647,6 @@ appCustomer.get('/checkout-session', async (req, res) => {
 
   console.log("/checkout-session")
 
-  // TODO: What state do we check... Testing with these
   if (checkUserState(UserState.TIME_SELECTION) || checkUserState(UserState.PAYMENT)) {
 
     hasActiveSession = true;
@@ -655,7 +656,6 @@ appCustomer.get('/checkout-session', async (req, res) => {
   }
 });
 
-// TODO: The user can enter this url directly in. Do we want that? It should be hidden if possible
 // Sesion Expired Endpoint
 appCustomer.get('/session-expired', (req, res) => {
 
