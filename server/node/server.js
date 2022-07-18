@@ -1,3 +1,7 @@
+// TODO: I think we should persist and countdown the time remaining on the Heroku server.
+//        Heroku server is less likely to go-offline. Can probably recover easily
+//        If the kiosk loses connection / reconnects
+
 /**
  * LIBS
  * ------------------
@@ -27,12 +31,10 @@ const { resolve } = require('path');
  * SOCKET IO
  * ------------------
  * [socketCustomer] - Allows access to customer-facing 'SocketIO'
- * [socketKiosk] - Allows access to kiosk-facing 'SocketIO'
  */
 const socketIO = require('socket.io');
 const { emit } = require('process');
 var socketCustomer
-var socketKiosk
 /**
  * END: SOCKET IO
  * ------------------
@@ -53,19 +55,6 @@ const ioCustomer = socketIO(serverCustomer)
 
 
 /**
- * KIOSK SERVER
- * ------------------
- */
-const portKiosk = process.env.PORT_KIOSK || 9999
-const appKiosk = express();
-const serverKiosk = http.createServer(appKiosk);
-const ioKiosk = socketIO(serverKiosk)
-/**
- * END: KIOSK SERVER
- * ------------------
- */
-
-/**
  * PATHS
  * ------------------
  */
@@ -78,10 +67,8 @@ const PATH_CANCELLED = resolve(PATH_BASE + '/cancelled.html');
 const PATH_ERROR = resolve(PATH_BASE + '/error.html');
 const PATH_INDEX = resolve(PATH_BASE + '/index.html');
 const PATH_PLEASE_SCAN = resolve(PATH_BASE + '/scan_qr.html');
-const PATH_QR = resolve(PATH_BASE + '/qr.html');
 const PATH_SESSION_EXPIRED = resolve(PATH_BASE + '/session_expired.html');
 const PATH_SUCCESS = PATH_BASE + '/success.html';
-const PATH_TIMER = resolve(PATH_BASE + '/timer.html');
 const PATH_TIME_SELECTION = resolve(PATH_BASE + '/time_selection.html');
 /**
  * END: PATHS
@@ -161,6 +148,7 @@ function startTimer() {
         socketCustomer.emit("time expired")
 
         clearInterval(timerInterval);
+        resetToStartingState()
       }
     }, 1000);
   } else {
@@ -183,37 +171,6 @@ function createPaymentIntentTimer() {
  * END: TIME
  * ------------------
  */
-
-
-/**
- * WINDOW RESIZER: QR
- * ------------------
- * Calls powershell script -> Calls .ahk script -> Resizes the chrome Window for the QR page
- * This will make the QR page full-screen
- */
- function resizeWindowForQR() {
-  var spawn = require("child_process").spawn, child;
-  child = spawn("powershell.exe", ["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_qr.ps1"]);
-}
-
- /**
- * WINDOW RESIZER: TIMER
- * ------------------
- * Calls powershell script -> Calls .ahk script -> Resizes the chrome Window for the Timer page
- * This will make the timer small and prevent it from blocking the Trackman UI
- */
-function resizeWindowForTimer() {
-
-  console.log('resizeWindowForTimer()')
-
-  var spawn = require("child_process").spawn, child;
-  child = spawn("powershell.exe", ["C:\\Users\\Admin\\Trackman` `Kiosk\\checkout-one-time-payments\\server\\node\\scripts\\exec_chrome_timer.ps1"]);
-}
-/**
- * END: WINDOW RESIZER
- * ------------------
- */
-
 
 /**
  * STRIPE RELATED
@@ -347,56 +304,6 @@ function generateRandomNumber() {
  */
 
 /**
- * QR GENERATION
- * ------------------
- * [randomNumberQR] Randomly generated number that is used to 'protect' the time-selection endpoint
- * This random number will require the user to physically be at the Kiosk in order to access
- * 
- * Creates a QR Code that points to:
- * /time-selection/[randomNumberQR]
- * 
- * The Kiosk prompts the user scan this QR Code in order to select their 'time allotment'
- */
-// Generates the QR Code image and saves it to the /res directory
-const generateQR = async text => {
-
-  console.log("CREATING A NEW QR");
-
-  try {
-    await QRCode.toFile('../../client/html/res/qr_code.png', text, {
-      color: {
-        dark: '#FFF',  // White
-        light: '#0000' // Transparent background
-      }
-    });
-  } catch (err) {
-    console.log(err);
-  }
-}
-
-var randomNumberQR = generateRandomNumber();
-console.log("RandomNumberQR: " + randomNumberQR);
-
-
-generateQR(process.env.DOMAIN + "/time-selection/" + randomNumberQR);
-
-// Generates a QR code based on the random number
-function generateRandomQR() {
-  console.log("generateRandomQR");
-
-  randomNumberQR = generateRandomNumber();
-  console.log("Random QR Number: " + randomNumberQR);
-
-  // Creates a QR Code for the time-selection route with the randomly generated number appended
-  generateQR(process.env.DOMAIN + "/time-selection/" + randomNumberQR);
-}
-
-/**
- * END: QR GENERATION
- * ------------------
- */
-
-/**
  * SESSION TRACKING | AUTHORIZATION
  * ------------------
  */
@@ -454,11 +361,9 @@ checkEnv();
  */
 // Sets up cache-control and other goodies to handle issues with navigation
 setUpServer(appCustomer);
-setUpServer(appKiosk);
 
 // Launch the servers
 serverCustomer.listen(portCustomer, () => console.log(`Customer Node server listening on port ${portCustomer}!`));
-serverKiosk.listen(portKiosk, () => console.log(`Kiosk Node server listening on port ${portKiosk}!`));
 
 // Sets up cache-control and other goodies to handle issues with navigation
 function setUpServer(server) {
@@ -482,6 +387,12 @@ function setUpServer(server) {
     res.set('Cache-Control', 'no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0');
     res.header('Expires', '-1');
     res.header('Pragma', 'no-cache');
+
+    // Allows CORS so Kiosk can retrieve time from this server
+    res.header('Access-Control-Allow-Origin', "*");
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+
     next()
   });
 }
@@ -490,32 +401,6 @@ function setUpServer(server) {
  * ------------------
  */
 
-
-/**
- * SOCKET IO: KIOSK
- * ------------------
- */
-
-// make a connection with the user from server side
-ioKiosk.on('connection', (socket) => {
-
-  console.log('socketKiosk: Connection!');
-
-  // Saves a reference so we can communicate with this socket elsewhere
-  socketKiosk = socket
-
-
-  // Client will tell the server to kick off the timer
-  socket.on('time_expired', () => {
-    console.log("SERVER.JS received a time_expired");
-    socketCustomer.emit("time_expired")
-  })
-
-});
-/**
- * END: SOCKET IO: KIOSK
- * ------------------
- */
 
 /**
  * STARTING SERVER: CUSTOMER
@@ -545,12 +430,6 @@ ioCustomer.on('connection', (socket) => {
       console.log('user disconnected');
       hasActiveSession = false;
 
-      // Generate a new QR code everytime the customer moves away from the Time-Selection page
-      // This helps prevent a random person from logging in remote and hogging the machine even
-      generateRandomQR();
-
-      // Talks to the QR page. Allows it to regresh the new QR Code
-      socketKiosk.emit("user_disconnected")
     });
   }
 });
@@ -560,49 +439,19 @@ ioCustomer.on('connection', (socket) => {
  */
 
 /**
- * ENDPOINTS: KIOSK
+ * ENDPOINTS: CUSTOMER
  * ------------------
  */
-appKiosk.get('/QR', (req, res) => {
-
-  console.log("/QR")
-
-
-  // Set the Chrome window size to be in 'timer' mode
-  resizeWindowForQR();
-  res.sendFile(PATH_QR);
-});
-
-
-appKiosk.get('/timer', (req, res) => {
-
-  console.log("/timer")
-  console.log("TIME TO USE: " + timeRemaining)
-
-  // Set the Chrome window size to be in 'timer' mode
-  resizeWindowForTimer();
-  res.sendFile(PATH_TIMER);
-});
-
 
 // Fetch the Checkout Session to display the JSON result on the success page
-appKiosk.get('/get-duration', async (req, res) => {
+appCustomer.get('/get-duration', async (req, res) => {
   console.log("get-duration " + timeRemaining)
 
   res.status(200)
   res.send({ duration: timeRemaining });
 });
 
-/**
- * END: ENDPOINTS: KIOSK
- * ------------------
- */
 
-
-/**
- * ENDPOINTS: CUSTOMER
- * ------------------
- */
 appCustomer.get('/expire-token', async (req, res) => {
 
   console.log("/expire-token")
@@ -671,12 +520,6 @@ appCustomer.get('/session-expired', (req, res) => {
   }
 });
 
-// TODO: I don't think I need this since it was tied to emailing
-// TODO: The user can enter this url directly in. Do we want that? It should be hidden if possible
-// Error sending an email
-// appCustomer.get('/error', (req, res) => {
-//   res.sendFile(PATH_ERROR);
-// });
 
 // Tells user to scan the QR Code
 appCustomer.get('/scan-QR', function(req, res) {
@@ -800,7 +643,7 @@ appCustomer.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
-appCustomer.get('/time-selection/:key', function (req, res) {
+appCustomer.get('/time-selection', function (req, res) {
 
   console.log('/time-selection');
 
@@ -825,36 +668,12 @@ appCustomer.get('/time-selection/:key', function (req, res) {
     // We receive an extra request from globals.js for some reason. This helps us handle this request
     var isGlobalsJSRequest = req.params.key === 'globals.js'
 
-    console.log("Inputted Key: " + req.params.key)
     console.log("Random Number: " + randomNumber)
-    console.log("Random Number QR: " + randomNumberQR)
 
-    if(isGlobalsJSRequest){
-      console.log("isGlobalsJSRequest!")
+    updateUserState(UserState.TIME_SELECTION)
 
-      updateUserState(UserState.TIME_SELECTION)
-
-      var path = resolve(routeBasedOnMachineInUse(PATH_TIME_SELECTION));
-      res.sendFile(path);
-    }
-    else if (req.params.key === randomNumberQR) {
-      console.log("Number matches QR!")
-
-      updateUserState(UserState.TIME_SELECTION)
-
-      var path = resolve(routeBasedOnMachineInUse(PATH_TIME_SELECTION));
-      res.sendFile(path);
-    } 
-    else {
-      console.log("Number does NOT match QR!")
-
-      res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-      res.header('Expires', '-1');
-      res.header('Pragma', 'no-cache');
-
-      // Route the user to scan the QR Code
-      sendUserToPleaseScan(res)
-    }
+    var path = resolve(routeBasedOnMachineInUse(PATH_TIME_SELECTION));
+    res.sendFile(path);
   } 
   else {
     console.log("NOT IN THE QR STATE")
@@ -872,9 +691,8 @@ appCustomer.get('/' + randomNumber, (req, res) => {
 
     console.log("In the random number");
 
-    // Kicks off the timer via Socket IO.
-    // Timer page should show on the Kiosk
-    socketKiosk.emit("start_timer");
+    // Start counting down the time remaining in the Trackman session
+    startTimer()
 
     if (paymentIntentTimer != null) {
       // This stops us from cancelling the Payment Intent. 
@@ -944,108 +762,3 @@ function sendUserToErrorPage(res) {
   }
   return happyPath
 }
-
-
-/**
- * NODE MAILER
- * ------------------
- * For emailing the customer their Trackman session
- * POSSIBLE FUTURE FEATURE  
- */
- const nodemailer = require('nodemailer');
- const { google } = require("googleapis");
- const { Domain } = require('domain');
- const { time } = require('console');
- const { restart } = require('nodemon');
- const OAuth2 = google.auth.OAuth2;
- 
- const oauth2Client = new OAuth2(
-   process.env.OAUTH_CLIENT_ID, // ClientID
-   process.env.OAUTH_CLIENT_SECRET, // Client Secret
-   process.env.OAUTH_REDIRECT_EMAIL, // Redirect URL
- );
- 
- oauth2Client.setCredentials({
-   refresh_token: process.env.OAUTH_REFRESH_TOKEN
- });
- 
- // Send the user an email
- async function sendEmail(customersEmail, res) {
-   console.log(`sendEmail()`);
- 
-   var email = process.env.EMAIL;
-   var clientID = process.env.OAUTH_CLIENT_ID;
-   var clientSecret = process.env.OAUTH_CLIENT_SECRET;
-   var refreshToken = process.env.OAUTH_REFRESH_TOKEN;
-   var accessToken = process.env.OAUTH_ACCESS_TOKEN;
- 
-   try {
- 
-     let transporter = nodemailer.createTransport({
-       host: 'smtp.gmail.com',
-       port: 465,
-       secure: true,
-       auth: {
-         type: 'OAuth2',
-         user: email,
-         clientId: clientID,
-         clientSecret: clientSecret,
-         refreshToken: refreshToken,
-         accessToken: accessToken,
-         expires: 1647579898000
-       }
-     });
- 
-     var mailOptions = {
-       from: email,
-       to: customersEmail,
-       subject: 'Trackman Session',
-       text: 'That was easy!'
-     };
- 
-     const result = await transporter.sendMail(mailOptions, function (error, info) {
- 
-       // Machine is no longer in use. Lower the flag
-       hasActiveSession = false;
- 
-       if (error) {
- 
-         console.log(error);
- 
-         //redirect to error screen
-         res.statusCode = 302;
-         res.setHeader('Location', '/error');
- 
-       } else {
-         console.log('Email sent: ' + info.response);
-         //Email sent, send the user back to the home screen
-         res.statusCode = 302;
-         res.setHeader('Location', '/');
-         return res.end();
-       }
-     });
-     // Set up the email options and delivering it
-     return result;
- 
-   } catch (error) {
- 
-     console.log(error);
- 
-     res.statusCode = 302;
-     res.setHeader('Location', '/');
-     return res.end();
-   }
- }
-
- // TODO: Need to handle if email doesn't send... Right now, it just loads forever
-
-// Sends the Trackman Session to the User's email
-// appCustomer.post('/send', (req, res) => {
-//   console.log(req.body.email_address)
-//   sendEmail(req.body.email_address, res)
-// });
-
- /**
-  * END: NODE MAILER
-  * ------------------
-  */

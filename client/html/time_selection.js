@@ -16,16 +16,6 @@ setTimeout(function () {
   window.location.href = PATH_PLEASE_SCAN;
 }, ONE_MINUTE_MILLIS)
 
-  // Get the QR Code Number via the URL
-  function getCode(){
-    var sPageURL = window.location.href;
-    var sURLVariables = sPageURL.split('time-selection/');
-
-    qrFromURL = sURLVariables[1]
-    console.log('URL QR: ' + qrFromURL)
-    return qrFromURL;
-  }
-
 // make connection with server from user side
 socket.on('connect', function(){
   console.log('Connected to Server')
