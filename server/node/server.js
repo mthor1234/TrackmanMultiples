@@ -83,6 +83,7 @@ const PATH_TIME_SELECTION = resolve(PATH_BASE + '/time_selection.html');
   const ROUTE_PLEASE_SCAN = "/scan-QR";
   const ROUTE_CANCELLED = "/cancelled";
   const ROUTE_ERROR = "/error";
+  const ROUTE_ALREADY_IN_USE = "/already-in-use";
 /**
  * END: ROUTES
  * ------------------
@@ -95,13 +96,16 @@ const PATH_TIME_SELECTION = resolve(PATH_BASE + '/time_selection.html');
 const TIME_DENOMINATION_IN_SECS = 1800
 const THREE_MINS_MILLIS = 3 * 60000
 
- var timerInterval
- var isTimerInProgress = false
+var timerInterval
+var isTimerInProgress = false
 
 var timeRemaining = null
 
 // Decides when to cancel the PI Timer
 var paymentIntentTimer = null
+
+
+var hasActiveSession = false
 
  /**
  * Generates the timestamp for Stripe to timeout the Checkout Session
@@ -119,12 +123,6 @@ var paymentIntentTimer = null
     return currentTimeSecondsPlusOneHour;
   }
 
-// TODO: Getting duplicate timers when navigating back and forth.
-// I can try prevent this with an if/else check but I lose the socket so the
-// Client stops getting the 'tick' event.
-// Maybe I can update the socket to the new client? 
-// Somehow update the interval?
-// function startTimer(theSocket) {
 function startTimer() {
   console.log("startTimer")
 
@@ -137,7 +135,6 @@ function startTimer() {
     timerInterval = setInterval(function () {
 
       console.log("Time remaining: " + timeRemaining)
-
 
       timeRemaining--
       console.log(timeRemaining)
@@ -224,37 +221,6 @@ function checkEnv() {
 
 
 /**
- * USER STATE MACHINE
- * ------------------
- * Different 'States' the user can be in
- * Makes enpoints unreachable if the user isn't in the correct state
- */
- const UserState = {
-  QR: 'QR',
-  TIME_SELECTION: 'TIME_SELECTION',
-  PAYMENT: 'PAYMENT',
-  ACTIVE: 'ACTIVE',
-}
-
- /** Holds the user state. */
-var currentState = UserState.QR
-
-function checkUserState(state){
-  console.log("CHECKING USER STATE:")
-  console.log("CURRENT STATE: " + currentState + ": DESIRED STATE: " + state)
-  return (currentState === state)
-}
-
-function updateUserState(state){
-  console.log("UPDATING USER STATE FROM: " + currentState + " --> " + state)
-    currentState = state
-}
-/** 
-* END: USER STATE MACHINE 
-* -----------------------
-*/
-
-/**
  * RESET STATE
  * ------------------
  * Sets all of the key vars to their beginning state
@@ -270,7 +236,6 @@ function updateUserState(state){
   timeRemaining = 0
   socketCustomer = null
   paymentIntent = null
-  updateUserState(UserState.QR)
 }
 /** 
 * END: RESET STATE
@@ -307,7 +272,6 @@ function generateRandomNumber() {
  * SESSION TRACKING | AUTHORIZATION
  * ------------------
  */
-var hasActiveSession = false;
 var token = null;
 
 // Signs the JWT with an expiration time
@@ -428,8 +392,6 @@ ioCustomer.on('connection', (socket) => {
     // When the user navigates away from the webpage, this is called
     socket.on('disconnect', function () {
       console.log('user disconnected');
-      hasActiveSession = false;
-
     });
   }
 });
@@ -455,23 +417,16 @@ appCustomer.get('/get-duration', async (req, res) => {
 appCustomer.get('/expire-token', async (req, res) => {
 
   console.log("/expire-token")
-
-  // TODO: I think UserState.TIME_SELECTION is the right state
-  if (checkUserState(UserState.TIME_SELECTION) || checkUserState(UserState.ACTIVE)) {
     console.log("EXPIRE THE TOKEN!")
     token = null
     res.sendStatus(200)
-  }
+  
 });
 
 // Fetch the Checkout Session to display the JSON result on the success page
 appCustomer.get('/check-session', async (req, res) => {
 
   console.log("/check-session")
-
-  if(checkUserState(UserState.ACTIVE)) {
-
-    console.log("check-session");
 
     if (isTokenValid()) {
       console.log("Token is fine")
@@ -485,24 +440,6 @@ appCustomer.get('/check-session', async (req, res) => {
       res.send('None shall pass');
     }
     console.log("Outside");
-  } else {
-    sendUserToPleaseScan(res)
-  }
-});
-
-
-// Fetch the Checkout Session to display the JSON result on the success page
-appCustomer.get('/checkout-session', async (req, res) => {
-
-  console.log("/checkout-session")
-
-  if (checkUserState(UserState.TIME_SELECTION) || checkUserState(UserState.PAYMENT)) {
-
-    hasActiveSession = true;
-    res.send(hasActiveSession);
-  } else {
-    sendUserToPleaseScan(res)
-  }
 });
 
 // Sesion Expired Endpoint
@@ -510,14 +447,8 @@ appCustomer.get('/session-expired', (req, res) => {
 
   console.log("/session-expired")
 
-
-  if (checkUserState(UserState.ACTIVE)) {
-    res.sendFile(PATH_SESSION_EXPIRED);
-    resetToStartingState()
-
-  } else {
-    sendUserToPleaseScan(res)
-  }
+  res.sendFile(PATH_SESSION_EXPIRED);
+  resetToStartingState()
 });
 
 
@@ -525,6 +456,13 @@ appCustomer.get('/session-expired', (req, res) => {
 appCustomer.get('/scan-QR', function(req, res) {
   console.log("/scan-QR")
   res.sendFile(PATH_PLEASE_SCAN)
+});
+
+
+// Tells user to scan the QR Code
+appCustomer.get('/already-in-use', function(req, res) {
+  console.log("/already-in-use")
+  res.sendFile(PATH_ALREADY_IN_USE)
 });
 
 // Tells user to scan the QR Code
@@ -541,17 +479,9 @@ appCustomer.post('/create-checkout-session', async (req, res) => {
 
   try {
 
-  if (checkUserState(UserState.TIME_SELECTION)) {
     if (hasActiveSession) {
-
-      // Update the user's state
-      updateUserState(UserState.QR)
-      // TODO: Consider redirecting instead of Already in use?
       res.sendFile(PATH_ALREADY_IN_USE);
     } else {
-
-      // Update the user's state
-      updateUserState(UserState.PAYMENT)
 
       const domainURL = process.env.DOMAIN;
 
@@ -596,9 +526,6 @@ appCustomer.post('/create-checkout-session', async (req, res) => {
 
       return res.redirect(303, session.url);
     }
-  } else {
-    sendUserToPleaseScan(res)
-  }
 } catch (error) {
 
 console.log("There was error! " + error)
@@ -647,7 +574,11 @@ appCustomer.get('/time-selection', function (req, res) {
 
   console.log('/time-selection');
 
-  if (checkUserState(UserState.QR) || checkUserState(UserState.TIME_SELECTION)) {
+  if (hasActiveSession) {
+
+    console.log("MACHINE ALREADY IN USE")
+    sendUserToAlreadyInUse(res)
+  }else{
     // Cancel any existing Payment Intent's.
     // This helps handle the user navigating back to this page
     if (paymentIntent != null) {
@@ -670,24 +601,18 @@ appCustomer.get('/time-selection', function (req, res) {
 
     console.log("Random Number: " + randomNumber)
 
-    updateUserState(UserState.TIME_SELECTION)
-
     var path = resolve(routeBasedOnMachineInUse(PATH_TIME_SELECTION));
     res.sendFile(path);
   } 
-  else {
-    console.log("NOT IN THE QR STATE")
-    sendUserToPleaseScan(res)
-  }
 });
 
 appCustomer.get('/' + randomNumber, (req, res) => {
 
-  console.log("/randomNumber -> CurrentState: " + currentState)
+  if (hasActiveSession) {
+    sendUserToAlreadyInUse(res)
+  }else{
 
-  if (checkUserState(UserState.PAYMENT)) {
-
-    updateUserState(UserState.ACTIVE)
+    hasActiveSession = true;
 
     console.log("In the random number");
 
@@ -705,8 +630,6 @@ appCustomer.get('/' + randomNumber, (req, res) => {
 
     const success_url = process.env.DOMAIN + `/successful_purchase.html?session_id=` + token;
     res.redirect(success_url);
-  } else {
-    sendUserToPleaseScan(res)
   }
 });
 
@@ -732,8 +655,17 @@ appCustomer.get('/*', function (req, res) {
  * Updates state and sends the user to /scan-qr route 
  */
 function sendUserToPleaseScan(res) {
-  updateUserState(UserState.QR)
   return res.redirect(303, ROUTE_PLEASE_SCAN)
+}
+
+
+/**
+ * ROUTE HELPER: PLEASE SCAN
+ * ------------------
+ * Updates state and sends the user to /scan-qr route 
+ */
+ function sendUserToAlreadyInUse(res) {
+  return res.redirect(303, ROUTE_ALREADY_IN_USE)
 }
 
 /**
@@ -745,7 +677,6 @@ function sendUserToPleaseScan(res) {
  * 3. Send user to Please Scan Page
  */
 function sendUserToErrorPage(res) {
-  updateUserState(UserState.QR)
   return res.redirect(303, ROUTE_ERROR)
 }
 
